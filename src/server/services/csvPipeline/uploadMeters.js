@@ -57,6 +57,24 @@ async function uploadMeters(req, res, filepath, conn) {
 				meter[6] = switchGPS(gpsInput);
 			}
 
+			// Verify area unit
+			const areaInput = meter[9];
+			if (areaInput){
+				if (!isValidArea(areaInput)){
+					let msg = `For meter ${meter[0]} the area entry of $(areaInput) is invalid.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+
+			// Verify meter type
+			const meterTypeString = meter[4];
+			if (meterTypeString) {
+				if (!isValidMeterType){
+					let msg = `For meter ${meter[0]} the area entry of $(meterTypeString) is invalid.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+
 			// Process unit.
 			const unitName = meter[23];
 			const unitId = await getUnitId(unitName, Unit.unitType.METER, conn);
@@ -163,6 +181,34 @@ function switchGPS(gpsString) {
 	const array = gpsString.split(',');
 	// return String(array[1] + "," + array[0]);
 	return (array[1] + ',' + array[0]);
+}
+
+/**
+ * Checks if the area provided is a number and if it is larger than zero.
+ * @param areaInput the provided area for the meter
+ * @returns true or false
+ */
+function isValidArea(areaInput) {
+	// must be a number and must be non-negative
+	if (Number.isInteger(areaInput) && areaInput > 0){
+		return true;
+	} else {
+		return false;
+	}
+}
+
+/**
+ * Checks if the meter type provided is one of the 5 options allowed when creating a meter.
+ * @param meterTypeString
+ * @returns true or false
+ */
+function isValidMeterType(meterTypeString) {
+	const validTypes = ['egauge', 'mamac', 'metasys', 'obvius', 'other'];
+	if (validTypes.includes(meterTypeString.toLowerCase())){
+		return true;
+	} else {
+		return false;
+	}
 }
 
 /**
