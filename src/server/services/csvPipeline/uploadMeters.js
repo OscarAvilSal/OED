@@ -66,11 +66,20 @@ async function uploadMeters(req, res, filepath, conn) {
 				}
 			}
 
+			// Verify area unit provided
+			const areaUnitString = meter[25];
+			if (areaUnitString) {
+				if (!isValidAreaUnit(areaUnitString)){
+					let msg = `For meter ${meter[0]} the area unit of ${areaUnitString} is invalid.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+
 			// Verify meter type
 			const meterTypeString = meter[4];
 			if (meterTypeString) {
 				if (!isValidMeterType(meterTypeString)){
-					let msg = `For meter ${meter[0]} the area entry of ${meterTypeString} is invalid.`;
+					let msg = `For meter ${meter[0]} the meter type of ${meterTypeString} is invalid.`;
 					throw new CSVPipelineError(msg, undefined, 500);
 				}
 			}
@@ -191,6 +200,21 @@ function switchGPS(gpsString) {
 function isValidArea(areaInput) {
 	// must be a number and must be non-negative
 	if (Number.isInteger(areaInput) && areaInput > 0){
+		return true;
+	} else {
+		return false;
+	}
+}
+
+/**
+ * Checks if the area unit provided is an option
+ * @param areaUnit the provided area for the meter
+ * @returns true or false
+ */
+function isValidAreaUnit(areaUnit) {
+	const validTypes = ['feet', 'meters', 'none'];
+	// must be one of the three values
+	if (validTypes.includes(areaUnit.toLowerCase())){
 		return true;
 	} else {
 		return false;
