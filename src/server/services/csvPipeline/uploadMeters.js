@@ -41,6 +41,13 @@ async function uploadMeters(req, res, filepath, conn) {
 	try {
 		for (let i = 0; i < meters.length; i++) {
 			let meter = meters[i];
+			//validation for boolean [2]
+				        validateBooleanFields(meter, i);
+        // if (!isValidBoolean(enabledField)) {
+        //     let msg = `Invalid value for 'enabled' field in row ${i + 1}: "${enabledField}". Expected 'true', 'false'`;
+        //     throw new CSVPipelineError(msg, undefined, 500); 
+        // }
+
 			// First verify GPS is okay
 			// This assumes that the sixth column is the GPS as order is assumed for now in a GPS file.
 			const gpsInput = meter[6];
@@ -140,7 +147,8 @@ async function uploadMeters(req, res, filepath, conn) {
 					);
 			}
 		}
-	} catch (error) {
+	}
+	 catch (error) {
 		throw new CSVPipelineError(`Failed to upload meters due to internal OED Error: ${error.message}`, undefined, 500);
 	}
 }
@@ -252,5 +260,52 @@ async function getUnitId(unitName, expectedUnitType, conn) {
 	if (!unit || unit.typeOfUnit !== expectedUnitType) return null;
 	return unit.id;
 }
+// function isValidBoolean(value) {
+//     const validBooleans = ['true', 'false', true, false];
+//     return validBooleans.includes(value);
+// }
+
+/**
+ * Validates boolean-like fields for a given meter row.
+ * @param {Array} meter - A single row from the CSV file.
+ * @param {number} rowIndex - The current row index for error reporting.
+ */
+/**
+ * Validates boolean-like fields for a given meter row.
+ * @param {Array} meter - A single row from the CSV file.
+ * @param {number} rowIndex - The current row index for error reporting.
+ */
+function validateBooleanFields(meter, rowIndex) {
+    // Map of boolean field indices to their respective names
+    const booleanFields = {
+        2: 'enabled',
+        3: 'displayable',
+        10: 'cumulative',
+        11: 'reset',
+        18: 'end only',
+        32: 'disableChecks',
+    };
+
+    for (const [index, name] of Object.entries(booleanFields)) {
+        let value = meter[index];
+
+        // Normalize string values to lowercase for case-insensitive comparison
+        if (typeof value === 'string') {
+            value = value.toLowerCase();
+        }
+
+        // Validate against allowed boolean values
+        if (value !== 'true' && value !== 'false' && value !== true && value !== false) {
+            throw new CSVPipelineError(
+                `Invalid value for '${name}' in row ${rowIndex + 1}: "${meter[index]}". Expected 'true' or 'false'.`,
+                undefined,
+                400
+            );
+        }
+    }
+}
+
+
+
 
 module.exports = uploadMeters;
