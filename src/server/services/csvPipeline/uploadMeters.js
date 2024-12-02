@@ -63,9 +63,17 @@ async function uploadMeters(req, res, filepath, conn) {
 
 			// Verify area unit
 			const areaInput = meter[9];
-			if (areaInput){
+			if (areaInput) {
 				if (!isValidArea(areaInput)){
 					let msg = `For meter ${meter[0]} the area entry of ${areaInput} is invalid.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+
+			const timeSortValue = meter[17];
+			if (timeSortValue) {
+				if (!isValidTimeSort(timeSortValue)){
+					let msg = `For meter ${meter[0]} the time sort ${timeSortValue} is invalid.`;
 					throw new CSVPipelineError(msg, undefined, 500);
 				}
 			}
@@ -144,8 +152,7 @@ async function uploadMeters(req, res, filepath, conn) {
 					);
 			}
 		}
-	}
-	 catch (error) {
+	} catch (error) {
 		throw new CSVPipelineError(`Failed to upload meters due to internal OED Error: ${error.message}`, undefined, 500);
 	}
 }
@@ -219,7 +226,21 @@ function isValidArea(areaInput) {
 function isValidAreaUnit(areaUnit) {
 	const validTypes = ['feet', 'meters', 'none'];
 	// must be one of the three values
-	if (validTypes.includes(areaUnit.toLowerCase())){
+	if (validTypes.includes(areaUnit)){
+		return true;
+	} else {
+		return false;
+	}
+}
+
+/**
+ * Checks if the area unit provided is an option
+ * @param timeSortValue the provided area for the meter
+ * @returns true or false
+ */
+function isValidTimeSort(timeSortValue) {
+	// must be one of the three values
+	if (timeSortValue == 'increasing' || timeSortValue == 'decreasing'){
 		return true;
 	} else {
 		return false;
@@ -233,7 +254,7 @@ function isValidAreaUnit(areaUnit) {
  */
 function isValidMeterType(meterTypeString) {
 	const validTypes = ['egauge', 'mamac', 'metasys', 'obvius', 'other'];
-	if (validTypes.includes(meterTypeString.toLowerCase())){
+	if (validTypes.includes(meterTypeString)){
 		return true;
 	} else {
 		return false;
