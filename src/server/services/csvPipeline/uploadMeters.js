@@ -360,11 +360,10 @@ function validateMinMaxValues(meter, rowIndex) {
             `Invalid min/max values in row ${rowIndex + 1}: min="${meter[27]}", max="${meter[28]}". ` +
             `Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
             undefined,
-            400
+            500
         );
     }
 }
 
  
  module.exports = uploadMeters;
- 
