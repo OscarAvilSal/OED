@@ -44,6 +44,10 @@ async function uploadMeters(req, res, filepath, conn) {
 			//validation for boolean values
 			validateBooleanFields(meter, i);
 
+			// Validate min and max values
+			validateMinMaxValues(meter, i);
+
+
 
 			// First verify GPS is okay
 			// This assumes that the sixth column is the GPS as order is assumed for now in a GPS file.
@@ -341,4 +345,26 @@ function validateBooleanFields(meter, rowIndex) {
 
 
 
-module.exports = uploadMeters;
+function validateMinMaxValues(meter, rowIndex) {
+    const minValue = Number(meter[27]);
+    const maxValue = Number(meter[28]);
+
+    if (
+        isNaN(minValue) || 
+        isNaN(maxValue) || 
+        minValue < -9007199254740991 || 
+        maxValue > 9007199254740991 || 
+        minValue >= maxValue
+    ) {
+        throw new CSVPipelineError(
+            `Invalid min/max values in row ${rowIndex + 1}: min="${meter[27]}", max="${meter[28]}". ` +
+            `Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
+            undefined,
+            400
+        );
+    }
+}
+
+ 
+ module.exports = uploadMeters;
+ 
