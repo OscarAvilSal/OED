@@ -78,6 +78,14 @@ async function uploadMeters(req, res, filepath, conn) {
 				}
 			}
 
+			const timezone = meter[5];
+			if (timezone){
+				if (!isValidTimeZone(timezone)){
+					let msg = `For meter ${meter[0]}, ${timeSortValue} is not a valid time zone.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+
 			// Verify area unit provided
 			const areaUnitString = meter[25];
 			if (areaUnitString) {
@@ -234,8 +242,8 @@ function isValidAreaUnit(areaUnit) {
 }
 
 /**
- * Checks if the area unit provided is an option
- * @param timeSortValue the provided area for the meter
+ * Checks if the time sort value provided is accurate (should be increasing or decreasing)
+ * @param timeSortValue the provided time sort
  * @returns true or false
  */
 function isValidTimeSort(timeSortValue) {
@@ -257,6 +265,21 @@ function isValidMeterType(meterTypeString) {
 	if (validTypes.includes(meterTypeString)){
 		return true;
 	} else {
+		return false;
+	}
+}
+
+/**
+ * Checks the provided time zone and if it is a real time zone.
+ * @param zone the provided time zone from the csv
+ * @returns true or false
+ */
+function isValidTimeZone(zone) {
+	// check against the built in timezones, must use a try catch since it does not return a boolean
+	try {
+		new Intl.DateTimeFormat(undefined, {timeZone : zone});
+		return true;
+	} catch (e) {
 		return false;
 	}
 }
