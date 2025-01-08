@@ -18,7 +18,7 @@ const { normalizeBoolean } = require('./validateCsvUploadParams');
  */
 async function uploadMeters(req, res, filepath, conn) {
 	const temp = (await readCsv(filepath)).map(row => {
-		// The Canonical structure of each row in the Meters CSV file is the order of the fields 
+		// The Canonical structure of each row in the Meters CSV file is the order of the fields
 		// declared in the Meter constructor. If no headerRow is provided (i.e. headerRow === false),
 		// then we assume that the uploaded CSV file follows this Canonical structure.
 
@@ -323,16 +323,27 @@ function validateBooleanFields(meter, rowIndex) {
 		32: 'disableChecks'
 	};
 
+// this array has values which may be left empty
+	const booleanUndefinedAcceptable = [
+		'cumulative', 'reset', 'end only', 'disableChecks'
+	];
+
 	for (const [index, name] of Object.entries(booleanFields)) {
 		let value = meter[index];
 
 		// allows upper/lower case.
-		if (typeof value === 'string') {
-			value = value.toLowerCase();
+		if ((value === '' || value === undefined) && booleanUndefinedAcceptable.includes(name)) {
+			// skip if the value is undefined
+			continue;
+		} else {
+			if (typeof value === 'string') {
+				value = value.toLowerCase();
+			}
 		}
 
 		// Validates read values to either false or true
-		if (value !== 'true' && value !== 'false' && value !== true && value !== false) {
+		if (value !== 'true' && value !== 'false' && value !== true && value !== false
+			&& value !== 'yes' && value !== 'no') {
 			throw new CSVPipelineError(
 				`Invalid input for '${name}' in row ${rowIndex + 1}: "${meter[index]}". Expected 'true' or 'false'.`,
 				undefined,
@@ -342,28 +353,31 @@ function validateBooleanFields(meter, rowIndex) {
 	}
 }
 
-
-
-
 function validateMinMaxValues(meter, rowIndex) {
-    const minValue = Number(meter[27]);
-    const maxValue = Number(meter[28]);
+	const minValue = Number(meter[27]);
+	const maxValue = Number(meter[28]);
 
-    if (
-        isNaN(minValue) || 
-        isNaN(maxValue) || 
-        minValue < -9007199254740991 || 
-        maxValue > 9007199254740991 || 
-        minValue >= maxValue
-    ) {
-        throw new CSVPipelineError(
-            `Invalid min/max values in row ${rowIndex + 1}: min="${meter[27]}", max="${meter[28]}". ` +
+	if (isNaN(minValue)){
+		// do nothing, pass it through
+	} else if (isNaN(minValue) || minValue < -9007199254740991 || minValue >= maxValue){
+		throw new CSVPipelineError(
+			`Invalid min/max values in row ${rowIndex + 1}: min="${meter[27]}", max="${meter[28]}". ` +
             `Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
-            undefined,
-            500
-        );
-    }
+			undefined,
+			500
+		);
+	}
+
+	if (isNaN(maxValue)){
+		// do nothing, pass it through
+	} else if (isNaN(maxValue) || maxValue > 9007199254740991 || minValue >= maxValue){
+		throw new CSVPipelineError(
+			`Invalid min/max values in row ${rowIndex + 1}: min="${meter[27]}", max="${meter[28]}". ` +
+            `Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
+			undefined,
+			500
+		);
+	}
 }
 
- 
- module.exports = uploadMeters;
+module.exports = uploadMeters;
