@@ -8,6 +8,7 @@ const Meter = require('../../models/Meter');
 const readCsv = require('../pipeline-in-progress/readCsv');
 const Unit = require('../../models/Unit');
 const { normalizeBoolean } = require('./validateCsvUploadParams');
+const { type } = require('os');
 
 /**
  * Middleware that uploads meters via the pipeline. This should be the final stage of the CSV Pipeline.
@@ -47,8 +48,6 @@ async function uploadMeters(req, res, filepath, conn) {
 			// Validate min and max values
 			validateMinMaxValues(meter, i);
 
-
-
 			// First verify GPS is okay
 			// This assumes that the sixth column is the GPS as order is assumed for now in a GPS file.
 			const gpsInput = meter[6];
@@ -64,8 +63,8 @@ async function uploadMeters(req, res, filepath, conn) {
 				meter[6] = switchGPS(gpsInput);
 			}
 
-			// Verify area unit
-			const areaInput = meter[9];
+			// Verify area unit - have to parse float to ensure it can read in integer numbers like "33"
+			const areaInput = parseFloat(meter[9]);
 			if (areaInput) {
 				if (!isValidArea(areaInput)){
 					let msg = `For meter ${meter[0]} the area entry of ${areaInput} is invalid. Area must be a number greater than 0.`;
