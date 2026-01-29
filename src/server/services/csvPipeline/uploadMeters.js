@@ -563,4 +563,21 @@ function isDuplicate(duplicateValue) {
     return false;
 }
 
+function validateMaxError(meter, rowIndex) {
+	const maxErrorValue = Number(meter[31]);
+
+	//if its a number, validate its range
+	if (!isNaN(maxErrorValue)) {
+		if (maxErrorValue < 0 || maxErrorValue > 75) {	
+			throw new CSVPipelineError(
+				`Invalid maxError value in row ${rowIndex + 1}: maxError="${meter[31]}". ` +
+				`MaxError must be a number larger than 0, and less then 75.`,
+				undefined,
+				500
+			);
+		}
+	}
+}
+
+
 module.exports = uploadMeters;
