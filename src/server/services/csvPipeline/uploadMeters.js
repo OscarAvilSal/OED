@@ -7,7 +7,9 @@ const { CSVPipelineError } = require('./CustomErrors');
 const Meter = require('../../models/Meter');
 const readCsv = require('../pipeline-in-progress/readCsv');
 const Unit = require('../../models/Unit');
-const { normalizeBoolean } = require('./validateCsvUploadParams');
+const { normalizeBoolean, MeterTimeSortTypesJS } = require('./validateCsvUploadParams');
+const moment = require('moment-timezone');
+const { max } = require('lodash');
 
 /**
  * Middleware that uploads meters via the pipeline. This should be the final stage of the CSV Pipeline.
@@ -122,35 +124,25 @@ async function uploadMeters(req, res, filepath, conn) {
 // is in TS then a single version should exist and be used.
 /**
  * Checks if the string is a valid GPS representation. This requires it to be two numbers
- * separated by a comma and the GPS values to be within allowed values. The should be a latitude, longitude pair.
+ * separated by a comma and the GPS values to be within allowed values. There should be a latitude, longitude pair.
  * This is very similar to src/client/app/utils/calibration.ts but not TypeScript and does not do popup.
  * @param input The string to check for GPS values
  * @returns true if string is GPS and false otherwise.
  */
 function isValidGPSInput(input) {
-	let message = '';
-	let validGps = true;
-	if (input.indexOf(',') === -1) { // if there is no comma
-		message = 'GPS Input is missing a comma';
-		validGps = false;
-	} else if (input.indexOf(',') !== input.lastIndexOf(',')) { // if there are multiple commas
-		message = 'GPS Input has too many commas';
-		validGps = false;
+	// if there is no comma or there are multiple commas return false 
+	if (input.indexOf(',') === -1 || input.indexOf(',') !== input.lastIndexOf(',')) {
+		return false;
 	}
-	if (validGps) {
-		// Works if value is not a number since parseFloat returns a NaN so treated as invalid later.
-		const array = input.split(',').map((value) => parseFloat(value));
-		const latitudeIndex = 0;
-		const longitudeIndex = 1;
-		const latitudeConstraint = array[latitudeIndex] >= -90 && array[latitudeIndex] <= 90;
-		const longitudeConstraint = array[longitudeIndex] >= -180 && array[longitudeIndex] <= 180;
-		const result = latitudeConstraint && longitudeConstraint;
-		if (!result) {
-			validGps = false;
-			message = 'Invalid GPS coordinate, latitude must be an integer between -90 and 90, longitude must be an integer between -180 and 180. You input: ' + input;
-		}
-	}
-	return { validGps, message };
+	
+	// Works if value is not a number since parseFloat returns a NaN so treated as invalid later.
+	const array = input.split(',').map((value) => parseFloat(value));
+	const latitudeIndex = 0;
+	const longitudeIndex = 1;
+	const latitudeConstraint = array[latitudeIndex] >= -90 && array[latitudeIndex] <= 90;
+	const longitudeConstraint = array[longitudeIndex] >= -180 && array[longitudeIndex] <= 180;
+
+	return latitudeConstraint && longitudeConstraint;	
 }
 
 /**
@@ -161,8 +153,82 @@ function isValidGPSInput(input) {
  */
 function switchGPS(gpsString) {
 	const array = gpsString.split(',');
-	// return String(array[1] + "," + array[0]);
+	// consider type checking return String(array[1] + "," + array[0]);
 	return (array[1] + ',' + array[0]);
+}
+
+/**
+ * Checks if the area provided is a number and if it is larger than zero.
+ * @param areaInput the provided area for the metere
+ * @returns boolean
+ */
+function isValidArea(areaInput) {
+	// check for non-number inputs, which are not allowed
+	if (Number.isNaN(areaInput)) return false;
+
+	// must be a non-negative number
+	if (areaInput <= 0) {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Checks if the area unit provided is one of the 3 correct types 
+ * @param areaUnit the provided area for the meter
+ * @returns boolean
+ */
+function isValidAreaUnit(areaUnit) {
+	const validTypes = Object.values(Unit.areaUnitType);
+
+	// must be one of three types
+	if (!validTypes.includes(areaUnit)) {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Checks if the time sort value provided is accurate (should be increasing or decreasing)
+ * @param timeSortValue the provided time sort
+ * @returns boolean
+ */
+function isValidTimeSort(timeSortValue) {
+	const validTimes = Object.values(MeterTimeSortTypesJS);
+	
+	// must be one of three values
+	if (!validTimes.includes(timeSortValue)) {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Checks if the meter type provided is one of the 5 options allowed when creating a meter.
+ * @param meterTypeString the string for the meter type
+ * @returns boolean
+ */
+function isValidMeterType(meterTypeString) {
+	const validTypes = Object.values(Meter.type);
+
+	if (!validTypes.includes(meterTypeString)) {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Checks the provided time zone and if it's a real time zone
+ * @param timeZone the provided time zone from the csv
+ * @returns boolean
+ */
+function isValidTimeZone(timeZone) {
+	const validZones = moment.tz.names();
+
+	if (!validZones.includes(timeZone)) {
+		return false;
+	}
+	return true;
 }
 
 /**
@@ -183,4 +249,68 @@ async function getUnitId(unitName, expectedUnitType, conn) {
 	return unit.id;
 }
 
-module.exports = uploadMeters;
+/**
+ * Validates all boolean-like fields for a given meter row.
+ * @param {Array} meter - A single row from the CSV file.
+ * @param {Number} rowindex - the current row index for error reporting.
+ */
+function validateBooleanFields(meter, rowIndex) {
+	const booleanFields = {
+		2: 'enabled',
+		3: 'displayable',
+		10: 'cumulative',
+		11: 'reset',
+		18: 'end only',
+		32: 'disableChecks'
+	};
+	
+	// this array has values which may be left empty
+	const booleanUndefinedAcceptable = [
+		'cumulative', 'reset', 'end only', 'disableChecks'
+	];
+
+	for (const [index, name] of Object.entries(booleanFields)) {
+		let value = meter[index];
+
+		// allows upper/lower case
+		if (typeof value === 'string' && !(value === '' || value === undefined)
+			&& !booleanUndefinedAcceptable.includes(name)) {
+			// if value exists standardize it
+			value = value.toLowerCase();
+		} else {
+			// skip undefined value
+			continue;
+		}
+
+		// define list of accepted values to increase readability
+		const acceptedValues = ['true', 'false', 'yes', 'no', true, false];
+
+		// Validates read values to either true or false
+		if (!acceptedValues.includes(value)) {
+			throw new CSVPipelineError(
+				`Invalid input for '${name}' in row ${rowIndex+1}: "${meter[index]}". Expected 'true' or 'false'.`,
+				undefined,
+				500
+			);
+		}
+	}
+}
+
+/**
+ * Checks to see if meter values are out of bounds.
+ * @param meter the current meter object
+ * @param rowIndex the current row being accessed
+ */
+function validateMinMaxValues(meter, rowIndex) {
+	const minValue = Number(meter[27]);
+	const maxValue = Number(meter[28]);	
+	
+	if ((isNaN(minValue) || isNaN(maxValue)) || (minValue < Number.MIN_SAFE_INTEGER || maxValue > Number.MAX_SAFE_INTEGER) || minValue > maxValue) {
+		throw new CSVPipelineError(
+			`Invalid min/max values in row ${rowIndex + 1}: min="${minValue}", max="${maxValue}".` +
+			`Min and/or max mus be a number in between -900719925470991 and 9007199254740991, and min must be less than max.`
+		)
+	}
+}
+
+module.exports = uploadmeters;
