@@ -271,6 +271,8 @@ function validateBooleanFields(meter, rowIndex) {
 
 	for (const [index, name] of Object.entries(booleanFields)) {
 		let value = meter[index];
+		
+		if (typeof value !== 'string' || value === '' || value === undefined) continue;
 
 		// allows upper/lower case
 		if (typeof value === 'string' && !(value === '' || value === undefined)
@@ -305,6 +307,7 @@ function validateMinMaxValues(meter, rowIndex) {
 	const minValue = Number(meter[27]);
 	const maxValue = Number(meter[28]);	
 	
+	// todo: double and triple check the logic for this
 	if ((isNaN(minValue) || isNaN(maxValue)) || (minValue < Number.MIN_SAFE_INTEGER || maxValue > Number.MAX_SAFE_INTEGER) || minValue > maxValue) {
 		throw new CSVPipelineError(
 			`Invalid min/max values in row ${rowIndex + 1}: min="${minValue}", max="${maxValue}".` +
