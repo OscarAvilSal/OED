@@ -10,6 +10,7 @@ const Unit = require('../../models/Unit');
 const { normalizeBoolean, MeterTimeSortTypesJS } = require('./validateCsvUploadParams');
 const moment = require('moment-timezone');
 const { max } = require('lodash');
+const { area } = require('d3');
 
 /**
  * Middleware that uploads meters via the pipeline. This should be the final stage of the CSV Pipeline.
@@ -43,12 +44,19 @@ async function uploadMeters(req, res, filepath, conn) {
 	try {
 		for (let i = 0; i < meters.length; i++) {
 			let meter = meters[i];
-			// First verify GPS is okay
-			// This assumes that the sixth column is the GPS as order is assumed for now in a GPS file.
+
+			// validation for boolean values
+			validateBooleanFields(meter, i);
+			
+			// validate min & max values
+			validateMinMaxValues(meter, i);
+			
+			// verify if GPS is okay
+			// this assumes that the 6th column is GPS as order is assumed for now in a GPS file 
 			const gpsInput = meter[6];
 			// Skip if undefined.
-			if (gpsInput) {
-				// Verify GPS is okay values
+			if (gpsInput) { 
+				// Verify GPS values are okay
 				const { validGps, message } = isValidGPSInput(gpsInput);
 				if (!validGps) {
 					let msg = `For meter ${meter[0]} the gps coordinates of ${gpsInput} are invalid with error of "${message}"`;
@@ -58,7 +66,55 @@ async function uploadMeters(req, res, filepath, conn) {
 				// DB is longitude, latitude.
 				meter[6] = switchGPS(gpsInput);
 			}
+			
+			// performing validation checks
 
+			// verify the area input
+			const areaInput = meter[9];
+			if (areaInput) {
+				if (!isValidArea(areaInput)) {
+					let msg = `For meter ${meter[0]} the area entry of ${areaInput} is invalid. Area must be a number greater than 0.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+			
+			// verify time
+			const timeSortValue = meter[17];
+			if (timeSortValue) {
+				if (!isValidTimeSort(timeSortValue)) {
+					let msg = `For meter ${meter[0]} the time sort ${timeSortValue} is invalid. Valid options are increasing or decreasing.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+			
+			// verify time zone
+			const timezone = meter[5];
+			if (timezone) {
+				if (!isValidTimeZone(timezone)) {
+					let msg = `For meter ${meter[0]}, ${timezone} is not a valid time zone.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+			
+			// verify area unit
+			const areaUnitString = meter[25];
+			if (areaUnitString) {
+				if (!isValidAreaUnit(areaUnitString)) {
+					let mst = `For meter ${meter[0]} the area unit of ${areaUnitString} is invalid. Unit must be feet, meters, or none.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+			
+			// verify meter type
+			const meterTypeString = meter[4];
+			if (meterTypeString) {
+				if (!isValidMeterType(meterTypeString)) {
+					let msg = `For meter ${meter[0]} the meter type of ${meterTypeString} is invalid. Valid types include:
+							   egauge, mamac, metasys, obvius, and other.`;
+					throw new CSVPipelineError(msg, undefined, 500);
+				}
+			}
+			
 			// Process unit.
 			const unitName = meter[23];
 			const unitId = await getUnitId(unitName, Unit.unitType.METER, conn);
@@ -93,8 +149,11 @@ async function uploadMeters(req, res, filepath, conn) {
 					}
 				} else if (meters.length !== 1) {
 					// This error could be thrown a number of times, one per meter in CSV, but should only see one of them.
-					throw new CSVPipelineError(`Meter identifier provided (\"${identifierOfMeter}\") in request with update for meters but more than one meter in CSV so not processing`, undefined, 500);
+					let msg = `Meter identifier provided (\"${identifierOfMeter}\") in request with update for meters but more than one meter in CSV so not processing`;
+					throw new CSVPipelineError(msg, undefined, 500);
 				}
+
+				// getting current meter by it's id
 				let currentMeter;
 				currentMeter = await Meter.getByIdentifier(identifierOfMeter, conn)
 					.catch(error => {
@@ -104,19 +163,21 @@ async function uploadMeters(req, res, filepath, conn) {
 					});
 				currentMeter.merge(...meter);
 				await currentMeter.update(conn);
+
 			} else {
 				// Inserting the new meter
 				await new Meter(undefined, ...meter).insert(conn)
 					.catch(error => {
 						// Probably duplicate meter.
-						throw new CSVPipelineError(
-							`Meter name of \"${meter[0]}\" got database error of: ${error.message}`, undefined, 500);
+						let msg = `Meter name of \"${meter[0]}\" got database error of: ${error.message}`;
+						throw new CSVPipelineError(msg, undefined, 500);
 					}
 					);
 			}
 		}
 	} catch (error) {
-		throw new CSVPipelineError(`Failed to upload meters due to internal OED Error: ${error.message}`, undefined, 500);
+		let msg = `Failed to upload meters due to internal OED Error: ${error.message}`;
+		throw new CSVPipelineError(msg, undefined, 500);
 	}
 }
 
@@ -137,10 +198,17 @@ function isValidGPSInput(input) {
 	
 	// Works if value is not a number since parseFloat returns a NaN so treated as invalid later.
 	const array = input.split(',').map((value) => parseFloat(value));
+	
+	// const values for readability
 	const latitudeIndex = 0;
 	const longitudeIndex = 1;
-	const latitudeConstraint = array[latitudeIndex] >= -90 && array[latitudeIndex] <= 90;
-	const longitudeConstraint = array[longitudeIndex] >= -180 && array[longitudeIndex] <= 180;
+	const MAX_LATITUDE = 90;
+	const MIN_LATITUDE = -90;
+	const MAX_LONGITUDE = 180;
+	const MIN_LONGITUDE = -180;
+	
+	const latitudeConstraint = array[latitudeIndex] >= MIN_LATITUDE && array[latitudeIndex] <= MAX_LATITUDE;
+	const longitudeConstraint = array[longitudeIndex] >= MIN_LONGITUDE && array[longitudeIndex] <= MAX_LONGITUDE;
 
 	return latitudeConstraint && longitudeConstraint;	
 }
@@ -153,8 +221,13 @@ function isValidGPSInput(input) {
  */
 function switchGPS(gpsString) {
 	const array = gpsString.split(',');
+	
+	// const variables for readability
+	const latitude = array[0];
+	const longitude = array[1];
+
 	// consider type checking return String(array[1] + "," + array[0]);
-	return (array[1] + ',' + array[0]);
+	return (longitude + ',' + latitude);
 }
 
 /**
@@ -256,36 +329,36 @@ async function getUnitId(unitName, expectedUnitType, conn) {
  */
 function validateBooleanFields(meter, rowIndex) {
 	const booleanFields = {
-		2: 'enabled',
-		3: 'displayable',
-		10: 'cumulative',
-		11: 'reset',
-		18: 'end only',
-		32: 'disableChecks'
+		enabled: 'enabled', // 2
+		displayable: 'displayable', //3 
+		cumulative: 'cumulative', // field 10
+		reset: 'reset', // field 11
+		end: 'end only', // 18
+		disableChecks: 'disableChecks' // 32
 	};
 	
 	// this array has values which may be left empty
 	const booleanUndefinedAcceptable = [
-		'cumulative', 'reset', 'end only', 'disableChecks'
+		booleanFields.cumulative, booleanFields.reset, booleanFields.end, booleanFields.disableChecks
 	];
 
 	for (const [index, name] of Object.entries(booleanFields)) {
 		let value = meter[index];
 		
+		// skip if value is undefined
 		if (typeof value !== 'string' || value === '' || value === undefined) continue;
 
 		// allows upper/lower case
-		if (typeof value === 'string' && !(value === '' || value === undefined)
-			&& !booleanUndefinedAcceptable.includes(name)) {
-			// if value exists standardize it
-			value = value.toLowerCase();
-		} else {
-			// skip undefined value
+		// checked for not string, empty str, and undefined already
+		if (booleanUndefinedAcceptable.includes(name)) {
+			// skip if undefined acceptable value 
 			continue;
+		} else {
+			value = value.toLowerCase();
 		}
 
 		// define list of accepted values to increase readability
-		const acceptedValues = ['true', 'false', 'yes', 'no', true, false];
+		const acceptedValues = ['true', 'false', 'yes', 'no', true, false, 1, 0];
 
 		// Validates read values to either true or false
 		if (!acceptedValues.includes(value)) {
