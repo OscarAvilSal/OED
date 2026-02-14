@@ -9,7 +9,6 @@ const readCsv = require('../pipeline-in-progress/readCsv');
 const Unit = require('../../models/Unit');
 const { normalizeBoolean, MeterTimeSortTypesJS } = require('./validateCsvUploadParams');
 const moment = require('moment-timezone');
-const { validate } = require('jsonschema');
 
 /**
  * Middleware that uploads meters via the pipeline. This should be the final stage of the CSV Pipeline.
@@ -203,8 +202,6 @@ async function uploadMeters(req, res, filepath, conn) {
 	}
 }
 
-// TODO This is almost the same as the client function in src/client/app/utils/calibration.ts. When the server side
-// is in TS then a single version should exist and be used.
 /**
  * Checks if the string is a valid GPS representation. This requires it to be two numbers
  * separated by a comma and the GPS values to be within allowed values. The should be a latitude, longitude pair.
@@ -213,29 +210,19 @@ async function uploadMeters(req, res, filepath, conn) {
  * @returns true if string is GPS and false otherwise.
  */
 function isValidGPSInput(input) {
-	let message = '';
-	let validGps = true;
 	if (input.indexOf(',') === -1) { // if there is no comma
-		message = 'GPS Input is missing a comma';
-		validGps = false;
+		return false;
 	} else if (input.indexOf(',') !== input.lastIndexOf(',')) { // if there are multiple commas
-		message = 'GPS Input has too many commas';
-		validGps = false;
+		return false;
 	}
-	if (validGps) {
-		// Works if value is not a number since parseFloat returns a NaN so treated as invalid later.
-		const array = input.split(',').map((value) => parseFloat(value));
-		const latitudeIndex = 0;
-		const longitudeIndex = 1;
-		const latitudeConstraint = array[latitudeIndex] >= -90 && array[latitudeIndex] <= 90;
-		const longitudeConstraint = array[longitudeIndex] >= -180 && array[longitudeIndex] <= 180;
-		const result = latitudeConstraint && longitudeConstraint;
-		if (!result) {
-			validGps = false;
-			message = 'Invalid GPS coordinate, latitude must be an integer between -90 and 90, longitude must be an integer between -180 and 180. You input: ' + input;
-		}
-	}
-	return { validGps, message };
+	// Works if value is not a number since parseFloat returns a NaN so treated as invalid later.
+	const array = input.split(',').map(value => parseFloat(value));
+	const latitudeIndex = 0;
+	const longitudeIndex = 1;
+	const latitudeConstraint = array[latitudeIndex] >= -90 && array[latitudeIndex] <= 90;
+	const longitudeConstraint = array[longitudeIndex] >= -180 && array[longitudeIndex] <= 180;
+	const result = latitudeConstraint && longitudeConstraint;
+	return result;
 }
 
 /**
@@ -603,5 +590,32 @@ function validateArea(meter, rowIndex) {
   return { areaMsg: '', value: true };
 }
 
+function validateGap(meter, rowIndex){
+	const gapValue = Number(meter[14]);
+	if(!isNaN(gapValue)){
+		if(gapValue < 0){
+		throw new CSVPipelineError(
+			`Invalid gap value in row ${rowIndex + 1}: GapValue="${meter[14]}". ` +
+			`Gap must be a number larger than 0.`,
+			undefined, 
+			500
+		);
+		};
+	}
+}
+function validateVariation(meter, rowIndex){
+	const variationValue =Number(meter[15]);
+	if(!isNaN(variationValue)){
+		if(variationValue < 0)
+		{
+			throw new CSVPipelineError(
+			`Invalid variation value in row ${rowIndex + 1}: VariationValue="${meter[15]}". ` +
+			`Variation Value must be a number larger than 0.`,
+			undefined,
+			500
+			);
+		};
+	}
+}
 
 module.exports = uploadMeters;
