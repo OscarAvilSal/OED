@@ -132,18 +132,19 @@ async function uploadMeters(req, res, filepath, conn) {
 			// Verify area unit provided
 			const areaUnitString = meter[25];
 			if (areaUnitString) {
-				//for "feet/meters/none" check
 				if (!isValidAreaUnit(areaUnitString)) {
 					let msg = `For meter ${meter[0]} the area unit of ${areaUnitString} is invalid.`;
 					throw new CSVPipelineError(msg, undefined, 500);
 				}
-			//DESTINY added this check to make sure if area unit is none then area value must be empty or 0, and if area unit is not none then area value must be a number greater than 0.
+				
+				//checks to make sure if area unit is none then area value must be empty or 0, and if area unit is not none then area value must be a number greater than 0.
 				const areaCheck = validateArea(meter, i);
                 if (!areaCheck.value) {
                     throw new CSVPipelineError(areaCheck.areaMsg, undefined, 500);
                 }
 			}
-			//DESTINY added this check to make sure max error value is a number between 0 and 75 if it is provided.
+
+			//checks to make sure max error value is a number between 0 and 75 if it is provided.
 			const maxErrorCheck = validateMaxError(meter, i);
 			if (!maxErrorCheck.value) {
 				throw new CSVPipelineError(maxErrorCheck.maxErrorMsg, undefined, 500);
@@ -422,13 +423,54 @@ function validateMinMaxValues(meter, rowIndex) {
 }
 
 /**
+ * Validates the max error value for a given meter row.
+ * @param {Number} meter 
+ * @param {Number} rowIndex 
+ * @returns 
+ */
+function validateMaxError(meter, rowIndex) {
+	const maxErrorValue = Number(meter[31]);
+	let msg = '';
+
+	//if its a number, validate its range
+	if (!isNaN(maxErrorValue)) {
+		if (maxErrorValue < 0 || maxErrorValue > 75) {	
+			msg = `Invalid max error value in row ${rowIndex + 1}: maxError="${meter[31]}". ` + `MaxError must be a number larger than 0, and less than 75.`;
+			return { maxErrorMsg: msg, value: false };
+		}
+	}
+	return { maxErrorMsg: '', value: true };
+}
+
+/**
+ * Validates the area value for a given meter row.
+ * @param {Number} meter 
+ * @param {Number} rowIndex 
+ * @returns 
+ */
+function validateArea(meter, rowIndex) {
+	const areaValue = Number(meter[9]);
+	const areaUnit = meter[25];
+	let msg = '';
+
+	if (areaUnit && areaUnit.toLowerCase() === 'none') {
+		if(!isNaN(areaValue) && areaValue !== 0) {
+      msg = `Invalid area value in row ${rowIndex + 1}: area="${meter[9]}". ` + `Area must be empty when area unit is 'none'.`;
+      return { areaMsg: msg, value: false };
+    }
+  }
+  
+  return { areaMsg: '', value: true };
+}
+
+/**
  * A function to validate whether or not the inputted minimum and maximum dates are valid.
  * Also validates whether the minimum date comes before, or is equal to the maximum date.
  * Includes the helper function validateYear to create a valid range of dates (currently from: 0001 to the current year).
  * Also includes helper function correctDateTimeFormat to validate and correct any variations between the inputted dates.
  * @param {String} minDate 
  * @param {String} maxDate 
- * @returns array[boolean, string]
+ * @returns pair { msg, value } 
  */
 function isValidDate(minDate, maxDate) {
 	let msg = '';
@@ -608,6 +650,12 @@ function validateArea(meter, rowIndex) {
   return { areaMsg: '', value: true };
 }
 
+/**
+ * In the validateGap function we take in the readings for the Gap and
+ * verify that it’s greater than or equal to 0.
+ * @param {Number} meter 
+ * @param {Number} rowIndex 
+ */
 function validateGap(meter, rowIndex){
 	const gapValue = Number(meter[14]);
 	if(!isNaN(gapValue)){
@@ -621,8 +669,15 @@ function validateGap(meter, rowIndex){
 		};
 	}
 }
+
+/**
+ * In the validateVariation function we take in the readings for the variation and
+ * verify that it’s greater than or equal to 0.
+ * @param {Number} meter 
+ * @param {Number} rowIndex 
+ */
 function validateVariation(meter, rowIndex){
-	const variationValue =Number(meter[15]);
+	const variationValue = Number(meter[15]);
 	if(!isNaN(variationValue)){
 		if(variationValue < 0)
 		{
