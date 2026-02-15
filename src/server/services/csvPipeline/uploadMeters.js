@@ -621,6 +621,12 @@ function isDuplicate(duplicateValue) {
     return false;
 }
 
+/**
+ * In the validateGap function we take in the readings for the Gap and
+ * verify that it’s greater than or equal to 0.
+ * @param {Number} meter 
+ * @param {Number} rowIndex 
+ */
 function validateMaxError(meter, rowIndex) {
 	const maxErrorValue = Number(meter[31]);
 	let msg = '';
@@ -635,6 +641,12 @@ function validateMaxError(meter, rowIndex) {
 	return { maxErrorMsg: '', value: true };
 }
 
+/**
+ * Validates the area value for a given meter row.
+ * @param {Number} meter 
+ * @param {Number} rowIndex 
+ * @returns 
+ */
 function validateArea(meter, rowIndex) {
 	const areaValue = Number(meter[9]);
 	const areaUnit = meter[25];
