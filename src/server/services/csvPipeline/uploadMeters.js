@@ -10,6 +10,7 @@ const Unit = require('../../models/Unit');
 const { normalizeBoolean, MeterTimeSortTypesJS } = require('./validateCsvUploadParams');
 const moment = require('moment-timezone');
 const { validate } = require('jsonschema');
+const { parse } = require('path');
 
 /**
  * Middleware that uploads meters via the pipeline. This should be the final stage of the CSV Pipeline.
@@ -385,15 +386,29 @@ function validateMinMaxValues(meter, rowIndex) {
 }
 
 function validateMaxError(meter, rowIndex) {
-	const maxErrorValue = Number(meter[31]);
+	const rawValue = meter[31];
+
+	//check if its a valid number
+	if (rawValue === undefined || rawValue === null || rawValue === '') {
+		return { maxErrorMsg: `Missing max error in row ${rowIndex + 1}:`, value: false };
+	}
+
+	const maxErrorValue = Number(rawValue);
 	let msg = '';
 
-	//if its a number, validate its range
-	if (!isNaN(maxErrorValue)) {
-		if (maxErrorValue < 0 || maxErrorValue > 75) {	
-			msg = `Invalid max error value in row ${rowIndex + 1}: maxError="${meter[31]}". ` + `MaxError must be a number larger than 0, and less than 75.`;
-			return { maxErrorMsg: msg, value: false };
-		}
+	if (isNaN(maxErrorValue)) {
+		msg = `Invalid max error in row ${rowIndex + 1}: "${rawValue}". ` + `Is not a number. Max error must be a number.`;
+		return { maxErrorMsg: msg, value: false };
+	}
+	//Now that we know its a number, check if it is in the valid range
+	if (maxErrorValue < 0) {	
+		msg = `Invalid max error in row ${rowIndex + 1}: "${maxErrorValue}" is below minimum (0)`;
+		return { maxErrorMsg: msg, value: false };
+	}
+
+	if (maxErrorValue > 75) {	
+		msg = `Invalid max error in row ${rowIndex + 1}: "${maxErrorValue}" exceeds maximum (75)`;
+		return { maxErrorMsg: msg, value: false };
 	}
 	return { maxErrorMsg: '', value: true };
 }
