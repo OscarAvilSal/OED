@@ -359,30 +359,35 @@ function validateBooleanFields(meter, rowIndex) {
 }
 
 function validateMinMaxValues(meter, rowIndex) {
-	const minValue = Number(meter[27]);
-	const maxValue = Number(meter[28]);
+	const rawMinValue = meter[27];
+	const rawMaxValue = meter[28];
 
-	if (isNaN(minValue) && isNaN(maxValue)) {
-		// do nothing, pass it through
-	} else if (isNaN(minValue) || minValue < -9007199254740991 || minValue > maxValue) {
-		throw new CSVPipelineError(
-			`Invalid min/max values in row ${rowIndex + 1}: min="${meter[27]}", max="${meter[28]}". ` +
-			`Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
-			undefined,
-			500
-		);
+	//parse values (parseFloat handles empty strings as NaN)
+	const minValue = parseFloat(rawMinValue);
+	const maxValue = parseFloat(rawMaxValue);
+	let msg = '';
+
+	// 1. Validate Min Only if it exists and it is not empty
+	//If its empty we ignore it. If it has text we check if it is a valid number.
+	if (rawMinValue !== undefined && rawMinValue !== '' && Number.isNaN(minValue)) {
+		return {minMaxErrorMsg: `Invalid Min in row ${rowIndex + 1}: "${rawMinValue}" is not a number.`, value: false};
 	}
 
-	if (isNaN(maxValue)) {
-		// do nothing, pass it through
-	} else if (isNaN(maxValue) || maxValue > 9007199254740991 || minValue > maxValue) {
-		throw new CSVPipelineError(
-			`Invalid min/max values in row ${rowIndex + 1}: min="${meter[27]}", max="${meter[28]}". ` +
-			`Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
-			undefined,
-			500
-		);
+	// 2. Validate Max Only if it exists and it is not empty
+	//If its empty we ignore it. If it has text we check if it is a valid number.
+	if (rawMaxValue !== undefined && rawMaxValue !== '' && Number.isNaN(maxValue)) {
+		return {minMaxErrorMsg: `Invalid Max in row ${rowIndex + 1}: "${rawMaxValue}" is not a number.`, value: false};
 	}
+	//3. Relationship check, only if both exist and are valid numbers.
+	const minExists = rawMinValue !== '' && rawMinValue !== undefined && !Number.isNaN(minValue);
+	const maxExists = rawMaxValue !== '' && rawMaxValue !== undefined && !Number.isNaN(maxValue);
+	
+	if (minExists && maxExists && minValue > maxValue) {
+		msg = `Invalid min/max values in row ${rowIndex + 1}: min="${rawMinValue}", max="${rawMaxValue}". ` +
+		`Min must be less than Max.`;
+		return {minMaxErrorMsg: msg, value: false};
+	}
+	return {minMaxErrorMsg: '', value: true};
 }
 
 function validateMaxError(meter, rowIndex) {
@@ -396,7 +401,7 @@ function validateMaxError(meter, rowIndex) {
 	const maxErrorValue = parseFloat(rawMaxErrorValue);
 	let msg = '';
 
-	if (isNaN(maxErrorValue)) {
+	if (Number.isNaN(maxErrorValue)) {
 		msg = `Invalid max error in row ${rowIndex + 1}: "${rawMaxErrorValue}". ` + `Is not a number. Max error must be a number.`;
 		return { maxErrorMsg: msg, value: false };
 	}
@@ -423,7 +428,7 @@ function validateArea(meter, rowIndex) {
 	const areaUnit = meter[25] ? meter[25].toLowerCase() : '';
 	let msg = '';
 
-	if (isNaN(areaValue)) {
+	if (Number.isNaN(areaValue)) {
 		msg = `Invalid area value in row ${rowIndex + 1}: area="${rawAreaValue}". ` + `Area must be a number.`;
 		return { areaMsg: msg, value: false };
 	}
