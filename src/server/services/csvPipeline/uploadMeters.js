@@ -386,18 +386,18 @@ function validateMinMaxValues(meter, rowIndex) {
 }
 
 function validateMaxError(meter, rowIndex) {
-	const rawValue = meter[31];
+	const rawMaxErrorValue = meter[31];
 
 	//check if its a valid number
-	if (rawValue === undefined || rawValue === null || rawValue === '') {
+	if (rawMaxErrorValue === undefined || rawMaxErrorValue === null || rawMaxErrorValue === '') {
 		return { maxErrorMsg: `Missing max error in row ${rowIndex + 1}:`, value: false };
 	}
 
-	const maxErrorValue = Number(rawValue);
+	const maxErrorValue = parseFloat(rawMaxErrorValue);
 	let msg = '';
 
 	if (isNaN(maxErrorValue)) {
-		msg = `Invalid max error in row ${rowIndex + 1}: "${rawValue}". ` + `Is not a number. Max error must be a number.`;
+		msg = `Invalid max error in row ${rowIndex + 1}: "${rawMaxErrorValue}". ` + `Is not a number. Max error must be a number.`;
 		return { maxErrorMsg: msg, value: false };
 	}
 	//Now that we know its a number, check if it is in the valid range
@@ -414,18 +414,32 @@ function validateMaxError(meter, rowIndex) {
 }
 
 function validateArea(meter, rowIndex) {
-	const areaValue = Number(meter[9]);
-	const areaUnit = meter[25];
+	const rawAreaValue = meter[9];
+	const areaValue = parseFloat(rawAreaValue);
+	//Ternary operator to handle undefined area unit, which is allowed, 
+	// and if it is not undefined then make it lowercase for easier comparison. 
+	// If area unit is undefined then set to empty string for easier handling in validation.
+	//condition ? exprIfTrue : exprIfFalse
+	const areaUnit = meter[25] ? meter[25].toLowerCase() : '';
 	let msg = '';
 
-	if (areaUnit && areaUnit.toLowerCase() === 'none') {
-		if(!isNaN(areaValue) && areaValue !== 0) {
-      msg = `Invalid area value in row ${rowIndex + 1}: area="${meter[9]}". ` + `Area must be empty when area unit is 'none'.`;
-      return { areaMsg: msg, value: false };
-    }
-  }
-  
-  return { areaMsg: '', value: true };
+	if (isNaN(areaValue)) {
+		msg = `Invalid area value in row ${rowIndex + 1}: area="${rawAreaValue}". ` + `Area must be a number.`;
+		return { areaMsg: msg, value: false };
+	}
+	
+	if (areaValue < 0) {
+		msg = `Invalid area value in row ${rowIndex + 1}: area="${rawAreaValue}" Area Value must be a positive number.`;
+		return { areaMsg: msg, value: false };
+	}
+
+	if (areaUnit === 'none' && areaValue !== 0) {
+		msg = `Invalid area value in row ${rowIndex + 1}: area="${rawAreaValue}". ` + 
+		`When the Area Unit is set to 'none', the Area Value must be exactly zero (0).`;
+    	return { areaMsg: msg, value: false };
+	}
+
+	return { areaMsg: '', value: true };
 }
 
 
