@@ -398,6 +398,14 @@ function validateBooleanFields(meter, rowIndex) {
 	}
 }
 
+/**
+ * Validates the min and max reasonable limits
+ * Ensures both are valid numeric values (allowing floating points and Infinity)
+ * and verifies that the minimum value does not exceed the maximum value.
+ * * @param {Array} meter - A single row from the CSV file.
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} An object containing the error message (if any) and a boolean success flag.
+ */
 function validateMinMaxValues(meter, rowIndex) {
 	const rawMinValue = meter[27];
 	const rawMaxValue = meter[28];
