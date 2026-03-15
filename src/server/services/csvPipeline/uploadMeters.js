@@ -423,44 +423,79 @@ function validateMinMaxValues(meter, rowIndex) {
 }
 
 /**
- * Validates the max error value for a given meter row.
- * @param {Number} meter 
- * @param {Number} rowIndex 
- * @returns 
+ * Validates the max error value for a given meter row. Range should be between 0 and 75 if it is provided. 
+ * Allows for empty value which is treated as valid. Also allows for floating point values.
+ * @param {Array} meter - A single row from the CSV file.
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
 function validateMaxError(meter, rowIndex) {
-	const maxErrorValue = Number(meter[31]);
+	const rawMaxErrorValue = meter[31];
+
+	//check existence
+	if (rawMaxErrorValue === undefined || rawMaxErrorValue === null || rawMaxErrorValue === '') {
+		return { maxErrorMsg:'', value: true };
+	}
+
+	const maxErrorValue = parseFloat(rawMaxErrorValue);
 	let msg = '';
 
-	//if its a number, validate its range
-	if (!isNaN(maxErrorValue)) {
-		if (maxErrorValue < 0 || maxErrorValue > 75) {	
-			msg = `Invalid max error value in row ${rowIndex + 1}: maxError="${meter[31]}". ` + `MaxError must be a number larger than 0, and less than 75.`;
-			return { maxErrorMsg: msg, value: false };
-		}
+	if (Number.isNaN(maxErrorValue)) {
+		msg = `Invalid max error in row ${rowIndex + 1}: "${rawMaxErrorValue}". ` + `Is not a number. Max error must be a number.`;
+		return { maxErrorMsg: msg, value: false };
 	}
+
+	//Now that we know its a number, check if it is in the valid range
+	if (maxErrorValue < 0 || maxErrorValue > 75) {	
+		msg = `Invalid max error in row ${rowIndex + 1}: "${maxErrorValue}" Max error must be between 0 and 75.`;
+		return { maxErrorMsg: msg, value: false };
+	}
+
 	return { maxErrorMsg: '', value: true };
 }
 
 /**
- * Validates the area value for a given meter row.
- * @param {Number} meter 
- * @param {Number} rowIndex 
- * @returns 
+ * Validates the area value and its relationship with the area unit.
+ * Ensures the value is a valid number, non-negative, and correctly corresponds to the 'none' unit.
+ *  @param {Array} meter - A single row from the CSV file.
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
 function validateArea(meter, rowIndex) {
-	const areaValue = Number(meter[9]);
-	const areaUnit = meter[25];
-	let msg = '';
+    const rawAreaValue = meter[9];
+    let msg = '';
 
-	if (areaUnit && areaUnit.toLowerCase() === 'none') {
-		if(!isNaN(areaValue) && areaValue !== 0) {
-      msg = `Invalid area value in row ${rowIndex + 1}: area="${meter[9]}". ` + `Area must be empty when area unit is 'none'.`;
-      return { areaMsg: msg, value: false };
+    // Check existence
+    if (rawAreaValue === undefined || rawAreaValue === '') {
+        return { areaMsg: '', value: true };
     }
-  }
-  
-  return { areaMsg: '', value: true };
+
+    const areaValue = parseFloat(rawAreaValue);
+
+    // If area unit exists, convert to lowercase for case-insensitive comparison
+    let areaUnit;
+    if (meter[25]) {
+        areaUnit = meter[25].toLowerCase();
+    } else {
+        areaUnit = '';
+    }
+
+    if (Number.isNaN(areaValue)) {
+        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" is not a number.`;
+        return { areaMsg: msg, value: false };
+    }
+
+    if (areaValue < 0) {
+        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" must be a positive number.`;
+        return { areaMsg: msg, value: false };
+    }
+
+    if (areaUnit === 'none' && areaValue !== 0) {
+        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
+        return { areaMsg: msg, value: false };
+    }
+
+    return { areaMsg: '', value: true };
 }
 
 /**
@@ -619,81 +654,6 @@ function isDuplicate(duplicateValue) {
         return true;
     }
     return false;
-}
-
-/**
- * Validates the max error value for a given meter row. Range should be between 0 and 75 if it is provided. 
- * Allows for empty value which is treated as valid. Also allows for floating point values.
- * @param {Array} meter - A single row from the CSV file.
- * @param {number} rowIndex - The current row index for error reporting.
- * @returns {Object} An object containing the error message (if any) and a boolean success flag.
- */
-function validateMaxError(meter, rowIndex) {
-	const rawMaxErrorValue = meter[31];
-
-	//check existence
-	if (rawMaxErrorValue === undefined || rawMaxErrorValue === null || rawMaxErrorValue === '') {
-		return { maxErrorMsg:'', value: true };
-	}
-
-	const maxErrorValue = parseFloat(rawMaxErrorValue);
-	let msg = '';
-
-	if (Number.isNaN(maxErrorValue)) {
-		msg = `Invalid max error in row ${rowIndex + 1}: "${rawMaxErrorValue}". ` + `Is not a number. Max error must be a number.`;
-		return { maxErrorMsg: msg, value: false };
-	}
-
-	//Now that we know its a number, check if it is in the valid range
-	if (maxErrorValue < 0 || maxErrorValue > 75) {	
-		msg = `Invalid max error in row ${rowIndex + 1}: "${maxErrorValue}" Max error must be between 0 and 75.`;
-		return { maxErrorMsg: msg, value: false };
-	}
-
-	return { maxErrorMsg: '', value: true };
-}
-/**
- * Validates the area value and its relationship with the area unit.
- * Ensures the value is a valid number, non-negative, and correctly corresponds to the 'none' unit.
- *  @param {Array} meter - A single row from the CSV file.
- * @param {number} rowIndex - The current row index for error reporting.
- * @returns {Object} An object containing the error message (if any) and a boolean success flag.
- */
-function validateArea(meter, rowIndex) {
-    const rawAreaValue = meter[9];
-    let msg = '';
-
-    // Check existence
-    if (rawAreaValue === undefined || rawAreaValue === '') {
-        return { areaMsg: '', value: true };
-    }
-
-    const areaValue = parseFloat(rawAreaValue);
-
-    // If area unit exists, convert to lowercase for case-insensitive comparison
-    let areaUnit;
-    if (meter[25]) {
-        areaUnit = meter[25].toLowerCase();
-    } else {
-        areaUnit = '';
-    }
-
-    if (Number.isNaN(areaValue)) {
-        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" is not a number.`;
-        return { areaMsg: msg, value: false };
-    }
-
-    if (areaValue < 0) {
-        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" must be a positive number.`;
-        return { areaMsg: msg, value: false };
-    }
-
-    if (areaUnit === 'none' && areaValue !== 0) {
-        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
-        return { areaMsg: msg, value: false };
-    }
-
-    return { areaMsg: '', value: true };
 }
 /**
  * In the validateGap function we take in the readings for the Gap and
