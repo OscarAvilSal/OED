@@ -71,7 +71,7 @@ async function uploadMeters(req, res, filepath, conn) {
 					throw new CSVPipelineError(msg, undefined, 500);
 				}
 			}
-			
+
 			// verify the Gap input
 			const gapInput = meter[14];
 			if (gapInput) {
@@ -113,7 +113,7 @@ async function uploadMeters(req, res, filepath, conn) {
 			const maxDate = meter[30];
 			if (minDate && maxDate) {
 				// returns boolean
-				const { msg, value } = isValidDate(minDate, maxDate);	
+				const { msg, value } = isValidDate(minDate, maxDate);
 
 				if (!value) {
 					// msg comes from function
@@ -136,12 +136,12 @@ async function uploadMeters(req, res, filepath, conn) {
 					let msg = `For meter ${meter[0]} the area unit of ${areaUnitString} is invalid.`;
 					throw new CSVPipelineError(msg, undefined, 500);
 				}
-				
+
 				//checks to make sure if area unit is none then area value must be empty or 0, and if area unit is not none then area value must be a number greater than 0.
 				const areaCheck = validateArea(meter, i);
-                if (!areaCheck.value) {
-                    throw new CSVPipelineError(areaCheck.areaMsg, undefined, 500);
-                }
+				if (!areaCheck.value) {
+					throw new CSVPipelineError(areaCheck.areaMsg, undefined, 500);
+				}
 			}
 
 			//checks to make sure max error value is a number between 0 and 75 if it is provided.
@@ -263,7 +263,7 @@ function switchGPS(gpsString) {
  */
 function isValidArea(areaInput) {
 	// check for non-number input, which is not allowed
-	if (Number.isNaN(areaInput)){
+	if (Number.isNaN(areaInput)) {
 		return false;
 	}
 
@@ -280,14 +280,14 @@ function isValidArea(areaInput) {
  * @param areaUnit the provided area for the meter
  * @returns true or false
  */
-function isValidAreaUnit(areaUnit) { 
-    const validTypes = Object.values(Unit.areaUnitType); 
-    // must be one of the three values 
-    if (validTypes.includes(areaUnit)) { 
-        return true; 
-    } else { 
-        return false; 
-    } 
+function isValidAreaUnit(areaUnit) {
+	const validTypes = Object.values(Unit.areaUnitType);
+	// must be one of the three values 
+	if (validTypes.includes(areaUnit)) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 /**
@@ -399,27 +399,52 @@ function validateBooleanFields(meter, rowIndex) {
 }
 
 function validateMinMaxValues(meter, rowIndex) {
-	const minValue = Number(meter[27]);
-	const maxValue = Number(meter[28]);
+	const rawMinValue = meter[27];
+	const rawMaxValue = meter[28];
+	let msg = ''
 
-	if (isNaN(minValue) || minValue < -9007199254740991 || (!isNaN(maxValue) && minValue > maxValue)) {
-		throw new CSVPipelineError(
-			`Invalid min/max values in row ${rowIndex + 1}: min="${minValue}", max="${maxValue}". ` +
-			`Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
-			undefined,
-			500
-		);
+	//Quick exit if both are empty
+	if ((rawMinValue === undefined || rawMinValue === '') && (rawMaxValue === undefined || rawMaxValue === '')) {
+		return { minMaxErrorMsg: '', value: true };
 	}
 
-		// do nothing, pass it through
-	if (isNaN(maxValue) || maxValue > 9007199254740991) {
-		throw new CSVPipelineError(
-			`Invalid min/max values in row ${rowIndex + 1}: min="${minValue}", max="${maxValue}". ` +
-			`Min or/and max must be a number larger than -9007199254740991, and less then 9007199254740991, and min must be less than max.`,
-			undefined,
-			500
-		);
+	//1.Test if minValue is a Valid number
+	if (rawMinValue !== undefined && rawMinValue !== '') {
+		if (typeof rawMinValue !== 'number' && Number.isNaN(Number(rawMinValue))) {
+			msg = `Invalid Min in row ${rowIndex + 1}: "${rawMinValue}" is not a number.`;
+			return { minMaxErrorMsg: msg, value: false };
+		}
+
 	}
+	//2.Check if maxValue is a Valid Number
+	if (rawMaxValue !== undefined && rawMaxValue !== '') {
+		if (typeof rawMaxValue !== 'number' && Number.isNaN(Number(rawMaxValue))) {
+			msg = `Invalid Max in row ${rowIndex + 1}: "${rawMaxValue}" is not a number.`;
+			return { minMaxErrorMsg: msg, value: false };
+		}
+	}
+
+	//3.Convert to a number now that we know they are valid
+	let minValue;
+	//if its not empty convert it to a number otherwise = null
+	if (rawMinValue !== undefined && rawMinValue !== '') {
+		minValue = Number(rawMinValue)
+	} else {
+		minValue = null
+	}
+
+	let maxValue;
+	if (rawMaxValue !== undefined && rawMaxValue !== '') {
+		maxValue = Number(rawMaxValue)
+	} else {
+		maxValue = null
+	}
+	//4.Test if min > max (only if both exists)
+	if (minValue !== null && maxValue !== null && minValue > maxValue) {
+		msg = `Invalid Min/Max Values in row ${rowIndex + 1}: Min ("${rawMinValue}") is greater than Max ("${rawMaxValue}").`;
+		return { minMaxErrorMsg: msg, value: false };
+	}
+	return { minMaxErrorMsg: '', value: true };
 }
 
 /**
@@ -434,7 +459,7 @@ function validateMaxError(meter, rowIndex) {
 
 	//check existence
 	if (rawMaxErrorValue === undefined || rawMaxErrorValue === null || rawMaxErrorValue === '') {
-		return { maxErrorMsg:'', value: true };
+		return { maxErrorMsg: '', value: true };
 	}
 
 	const maxErrorValue = parseFloat(rawMaxErrorValue);
@@ -446,7 +471,7 @@ function validateMaxError(meter, rowIndex) {
 	}
 
 	//Now that we know its a number, check if it is in the valid range
-	if (maxErrorValue < 0 || maxErrorValue > 75) {	
+	if (maxErrorValue < 0 || maxErrorValue > 75) {
 		msg = `Invalid max error in row ${rowIndex + 1}: "${maxErrorValue}" Max error must be between 0 and 75.`;
 		return { maxErrorMsg: msg, value: false };
 	}
@@ -462,40 +487,40 @@ function validateMaxError(meter, rowIndex) {
  * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
 function validateArea(meter, rowIndex) {
-    const rawAreaValue = meter[9];
-    let msg = '';
+	const rawAreaValue = meter[9];
+	let msg = '';
 
-    // Check existence
-    if (rawAreaValue === undefined || rawAreaValue === '') {
-        return { areaMsg: '', value: true };
-    }
+	// Check existence
+	if (rawAreaValue === undefined || rawAreaValue === '') {
+		return { areaMsg: '', value: true };
+	}
 
-    const areaValue = parseFloat(rawAreaValue);
+	const areaValue = parseFloat(rawAreaValue);
 
-    // If area unit exists, convert to lowercase for case-insensitive comparison
-    let areaUnit;
-    if (meter[25]) {
-        areaUnit = meter[25].toLowerCase();
-    } else {
-        areaUnit = '';
-    }
+	// If area unit exists, convert to lowercase for case-insensitive comparison
+	let areaUnit;
+	if (meter[25]) {
+		areaUnit = meter[25].toLowerCase();
+	} else {
+		areaUnit = '';
+	}
 
-    if (Number.isNaN(areaValue)) {
-        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" is not a number.`;
-        return { areaMsg: msg, value: false };
-    }
+	if (Number.isNaN(areaValue)) {
+		msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" is not a number.`;
+		return { areaMsg: msg, value: false };
+	}
 
-    if (areaValue < 0) {
-        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" must be a positive number.`;
-        return { areaMsg: msg, value: false };
-    }
+	if (areaValue < 0) {
+		msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" must be a positive number.`;
+		return { areaMsg: msg, value: false };
+	}
 
-    if (areaUnit === 'none' && areaValue !== 0) {
-        msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
-        return { areaMsg: msg, value: false };
-    }
+	if (areaUnit === 'none' && areaValue !== 0) {
+		msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
+		return { areaMsg: msg, value: false };
+	}
 
-    return { areaMsg: '', value: true };
+	return { areaMsg: '', value: true };
 }
 
 /**
@@ -509,11 +534,11 @@ function validateArea(meter, rowIndex) {
  */
 function isValidDate(minDate, maxDate) {
 	let msg = '';
-	
+
 	// get correctly formatted dates and check if they're correctly formatted
 	const correctMinFormat = correctDateTimeFormat(minDate);
 	const correctMaxFormat = correctDateTimeFormat(maxDate);
-	
+
 	// validate that minDate was formatted correctly
 	let formattedMinDate, formattedMaxDate;
 	if (!correctMinFormat.value || !correctMaxFormat.value) {
@@ -525,25 +550,25 @@ function isValidDate(minDate, maxDate) {
 		formattedMinDate = correctMinFormat.msg;
 		formattedMaxDate = correctMaxFormat.msg;
 	}
-	
-    // validate that years are within range 0001 to the current date
+
+	// validate that years are within range 0001 to the current date
 	if (!validateYear(formattedMinDate) || !validateYear(formattedMaxDate)) {
 		msg += `\nMin year ${moment(formattedMinDate, "YYYY-MM-DD", true).year()} and Max year ${moment(formattedMaxDate, "YYYY-MM-DD", true).year()} are out of range (0001 to current year).`;
 		return { msg: msg, value: false };
 	}
-	
+
 	let bothValid = false;
-	
+
 	// create moment objects
-	const minMoment = moment(formattedMinDate, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true); 
-	const maxMoment = moment(formattedMaxDate, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true); 
-	
+	const minMoment = moment(formattedMinDate, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true);
+	const maxMoment = moment(formattedMaxDate, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true);
+
 	// validate lengths of the dates 
 	// checking if one includes time and one doesn't
-    if (minMoment.length != maxMoment.length) {
+	if (minMoment.length != maxMoment.length) {
 		msg += `Min date: ${minMoment} and max date: ${maxMoment} are not equivalent lengths.`;
 		return { msg: msg, value: false };
-    }
+	}
 
 	if (!minMoment.isValid() || !maxMoment.isValid()) {
 		msg += `\nError: Either Min Date ${minDate} or Max Date ${maxDate} is invalid (or both!).`;
@@ -551,16 +576,16 @@ function isValidDate(minDate, maxDate) {
 	} else if (minMoment.isValid() && maxMoment.isValid()) {
 		bothValid = true;
 	}
-	
-    // dates validated now check if minDate is == maxDate
-    if (minMoment.isBefore(maxMoment) && bothValid) {
+
+	// dates validated now check if minDate is == maxDate
+	if (minMoment.isBefore(maxMoment) && bothValid) {
 		// everything validated
 		return { msg: msg, value: true };
-    }
+	}
 	// check if equal
 	if (minMoment.isSame(maxMoment)) {
 		msg += `\nMin date: ${minDate} is equal to the max date: ${maxDate}.`;
-    }
+	}
 
 	msg += `\nMin date: ${minDate} is greater than max date: ${maxDate}.`;
 	return { msg: msg, value: false };
@@ -581,10 +606,10 @@ function validateYear(date) {
 	const mYear = moment(date).year();
 	const mCurrentYear = moment().year();
 
-    if (mYear >= minYear && mYear <= mCurrentYear) {
-        return true;
-    }
-    return false;
+	if (mYear >= minYear && mYear <= mCurrentYear) {
+		return true;
+	}
+	return false;
 }
 
 /**
@@ -594,18 +619,18 @@ function validateYear(date) {
  * @returns String - Targeted Format "YYYY-MM-DD HH:MM:SS"
  */
 function correctDateTimeFormat(date) {
-    // validate type is string
+	// validate type is string
 	if (typeof date != 'string') {
 		return { msg: `\nError: Inputted date not a string.`, value: false };
 	}
 
-    // trim whitespace
-    date = date.trim();
+	// trim whitespace
+	date = date.trim();
 
-    // if length < 10, it's not a full date
-    if (date.length < 8) {
-        return { msg: `\nError: Inputted date not complete.`, value: false }; 
-    }
+	// if length < 10, it's not a full date
+	if (date.length < 8) {
+		return { msg: `\nError: Inputted date not complete.`, value: false };
+	}
 
 	// accepted moment format options, more options = slower runtime
 	// can remove variations of options if necessary
@@ -620,20 +645,20 @@ function correctDateTimeFormat(date) {
 		'YYYY-MM-DD HH:mm:ss', 'YYYY-MM-DD H:m:s',
 		'MM-DD-YYYY HH:mm:ss', 'MM-DD-YYYY H:m:s',
 		'M-D-YYYY HH:mm:ss', 'M-D-YYYY H:m:s',
-		'M-DD-YYYY HH:mm:ss', 'M-DD-YYYY H:m:s', 
+		'M-DD-YYYY HH:mm:ss', 'M-DD-YYYY H:m:s',
 		'MM-D-YYYY HH:mm:ss', 'MM-D-YYYY H:m:s',
 		'YYYY-M-DD HH:mm:ss', 'YYYY-M-DD H:m:s',
 		'YYYY-MM-D HH:mm:ss', 'YYYY-MM-D HH:mm:ss',
-	];	
-	
+	];
+
 	// parse date with moment 
 	const mDate = moment(date, acceptedFormats, true);
-    
-    // check if date is valid
-    if (!mDate.isValid()) {
-        return { msg: `\nError: Inputted date not valid.`, value: false };
-    }
-	
+
+	// check if date is valid
+	if (!mDate.isValid()) {
+		return { msg: `\nError: Inputted date not valid.`, value: false };
+	}
+
 	// check if time was included in the input
 	const hasTime = date.includes(':') || date.split(/[\s-]/).length > 3;
 
@@ -649,11 +674,11 @@ function correctDateTimeFormat(date) {
  * @param {Number} duplicateValue 
  * @returns 
  */
-function isDuplicate(duplicateValue) {	
-    if (duplicateValue >= 1 && duplicateValue <= 9) {
-        return true;
-    }
-    return false;
+function isDuplicate(duplicateValue) {
+	if (duplicateValue >= 1 && duplicateValue <= 9) {
+		return true;
+	}
+	return false;
 }
 /**
  * In the validateGap function we take in the readings for the Gap and
@@ -661,16 +686,16 @@ function isDuplicate(duplicateValue) {
  * @param {Number} meter 
  * @param {Number} rowIndex 
  */
-function validateGap(meter, rowIndex){
+function validateGap(meter, rowIndex) {
 	const gapValue = Number(meter[14]);
-	if(!isNaN(gapValue)){
-		if(gapValue < 0){
-		throw new CSVPipelineError(
-			`Invalid gap value in row ${rowIndex + 1}: GapValue="${meter[14]}". ` +
-			`Gap must be a number larger than 0.`,
-			undefined, 
-			500
-		);
+	if (!isNaN(gapValue)) {
+		if (gapValue < 0) {
+			throw new CSVPipelineError(
+				`Invalid gap value in row ${rowIndex + 1}: GapValue="${meter[14]}". ` +
+				`Gap must be a number larger than 0.`,
+				undefined,
+				500
+			);
 		};
 	}
 }
@@ -681,16 +706,15 @@ function validateGap(meter, rowIndex){
  * @param {Number} meter 
  * @param {Number} rowIndex 
  */
-function validateVariation(meter, rowIndex){
+function validateVariation(meter, rowIndex) {
 	const variationValue = Number(meter[15]);
-	if(!isNaN(variationValue)){
-		if(variationValue < 0)
-		{
+	if (!isNaN(variationValue)) {
+		if (variationValue < 0) {
 			throw new CSVPipelineError(
-			`Invalid variation value in row ${rowIndex + 1}: VariationValue="${meter[15]}". ` +
-			`Variation Value must be a number larger than 0.`,
-			undefined,
-			500
+				`Invalid variation value in row ${rowIndex + 1}: VariationValue="${meter[15]}". ` +
+				`Variation Value must be a number larger than 0.`,
+				undefined,
+				500
 			);
 		};
 	}
