@@ -622,22 +622,34 @@ function isDuplicate(duplicateValue) {
 }
 
 /**
- * In the validateGap function we take in the readings for the Gap and
- * verify that it’s greater than or equal to 0.
- * @param {Number} meter 
- * @param {Number} rowIndex 
+ * Validates the max error value for a given meter row. Range should be between 0 and 75 if it is provided. 
+ * Allows for empty value which is treated as valid. Also allows for floating point values.
+ * @param {Array} meter - A single row from the CSV file.
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
 function validateMaxError(meter, rowIndex) {
-	const maxErrorValue = Number(meter[31]);
+	const rawMaxErrorValue = meter[31];
+
+	//check existence
+	if (rawMaxErrorValue === undefined || rawMaxErrorValue === null || rawMaxErrorValue === '') {
+		return { maxErrorMsg:'', value: true };
+	}
+
+	const maxErrorValue = parseFloat(rawMaxErrorValue);
 	let msg = '';
 
-	//if its a number, validate its range
-	if (!isNaN(maxErrorValue)) {
-		if (maxErrorValue < 0 || maxErrorValue > 75) {	
-			msg = `Invalid max error value in row ${rowIndex + 1}: maxError="${meter[31]}". ` + `MaxError must be a number larger than 0, and less than 75.`;
-			return { maxErrorMsg: msg, value: false };
-		}
+	if (Number.isNaN(maxErrorValue)) {
+		msg = `Invalid max error in row ${rowIndex + 1}: "${rawMaxErrorValue}". ` + `Is not a number. Max error must be a number.`;
+		return { maxErrorMsg: msg, value: false };
 	}
+
+	//Now that we know its a number, check if it is in the valid range
+	if (maxErrorValue < 0 || maxErrorValue > 75) {	
+		msg = `Invalid max error in row ${rowIndex + 1}: "${maxErrorValue}" Max error must be between 0 and 75.`;
+		return { maxErrorMsg: msg, value: false };
+	}
+
 	return { maxErrorMsg: '', value: true };
 }
 
