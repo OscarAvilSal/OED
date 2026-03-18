@@ -145,7 +145,8 @@ async function uploadMeters(req, res, filepath, conn) {
 			}
 
 			//checks to make sure max error value is a number between 0 and 75 if it is provided.
-			const maxErrorCheck = validateMaxError(meter, i);
+			const maxErrorInput = meter[31];
+			const maxErrorCheck = validateMaxError(maxErrorInput, i);
 			if (!maxErrorCheck.value) {
 				throw new CSVPipelineError(maxErrorCheck.maxErrorMsg, undefined, 500);
 			}
@@ -458,29 +459,30 @@ function validateMinMaxValues(meter, rowIndex) {
 /**
  * Validates the max error value for a given meter row. Range should be between 0 and 75 if it is provided. 
  * Allows for empty value which is treated as valid. Also allows for floating point values.
- * @param {Array} meter - A single row from the CSV file.
+ * @param {number | string} maxErrorValue - The raw max error value extracted from the CSV row.
  * @param {number} rowIndex - The current row index for error reporting.
  * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
-function validateMaxError(meter, rowIndex) {
-	const rawMaxErrorValue = meter[31];
-
+function validateMaxError(maxErrorValue, rowIndex) {
+	let msg = '';
+	
 	//check existence
-	if (rawMaxErrorValue === undefined || rawMaxErrorValue === null || rawMaxErrorValue === '') {
+	if (maxErrorValue === undefined || maxErrorValue === null || maxErrorValue === '') {
 		return { maxErrorMsg: '', value: true };
 	}
 
-	const maxErrorValue = parseFloat(rawMaxErrorValue);
-	let msg = '';
-
-	if (Number.isNaN(maxErrorValue)) {
-		msg = `Invalid max error in row ${rowIndex + 1}: "${rawMaxErrorValue}". ` + `Is not a number. Max error must be a number.`;
+	//Strict type check
+	if (typeof maxErrorValue !== 'number' && Number.isNaN(Number(maxErrorValue))) {
+		msg = `Invalid Max Error in row ${rowIndex + 1}: "${maxErrorValue}" is not a number.`;
 		return { maxErrorMsg: msg, value: false };
 	}
 
+	//Conversion
+	const val = Number(maxErrorValue);
+
 	//Now that we know its a number, check if it is in the valid range
-	if (maxErrorValue < 0 || maxErrorValue > 75) {
-		msg = `Invalid max error in row ${rowIndex + 1}: "${maxErrorValue}" Max error must be between 0 and 75.`;
+	if (val < 0 || val > 75) {
+		msg = `Invalid Max Error in row ${rowIndex + 1}: "${maxErrorValue}" Max error must be between 0 and 75.`;
 		return { maxErrorMsg: msg, value: false };
 	}
 
