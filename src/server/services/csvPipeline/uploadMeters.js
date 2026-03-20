@@ -46,7 +46,12 @@ async function uploadMeters(req, res, filepath, conn) {
 			validateBooleanFields(meter, i);
 
 			// Validate min and max values
-			validateMinMaxValues(meter, i);
+			const minValue = meter[27];
+			const maxValue = meter[28];
+			const minMaxCheck = validateMinMaxValues(minValue, maxValue, i);
+			if (!minMaxCheck.value) {
+				throw new CSVPipelineError (minMaxCheck.minMaxErrorMsg, undefined, 500);
+			}
 
 			// First verify GPS is okay
 			// This assumes that the sixth column is the GPS as order is assumed for now in a GPS file.
@@ -407,54 +412,56 @@ function validateBooleanFields(meter, rowIndex) {
  * Validates the min and max reasonable limits
  * Ensures both are valid numeric values (allowing floating points and Infinity)
  * and verifies that the minimum value does not exceed the maximum value.
- * * @param {Array} meter - A single row from the CSV file.
+ * @param {string | number} minValue - inclusive minimum acceptable reading value
+ * @param {string | number} maxValue - inclusive maximum acceptable reading value 
  * @param {number} rowIndex - The current row index for error reporting.
  * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
-function validateMinMaxValues(meter, rowIndex) {
-	const rawMinValue = meter[27];
-	const rawMaxValue = meter[28];
+
+//const rawMinValue = meter[27];
+//	const rawMaxValue = meter[28];
+function validateMinMaxValues(minValue, maxValue, rowIndex) {
 	let msg = ''
 
 	//Quick exit if both are empty
-	if ((rawMinValue === undefined || rawMinValue === '') && (rawMaxValue === undefined || rawMaxValue === '')) {
+	if ((minValue === undefined || minValue === '') && (maxValue === undefined || maxValue === '')) {
 		return { minMaxErrorMsg: '', value: true };
 	}
 
 	//1.Test if minValue is a Valid number
-	if (rawMinValue !== undefined && rawMinValue !== '') {
-		if (typeof rawMinValue !== 'number' && Number.isNaN(Number(rawMinValue))) {
-			msg = `Invalid Min in row ${rowIndex + 1}: "${rawMinValue}" is not a number.`;
+	if (minValue !== undefined && minValue !== '') {
+		if (typeof minValue !== 'number' && Number.isNaN(Number(minValue))) {
+			msg = `Invalid Min in row ${rowIndex + 1}: "${minValue}" is not a number.`;
 			return { minMaxErrorMsg: msg, value: false };
 		}
 
 	}
 	//2.Check if maxValue is a Valid Number
-	if (rawMaxValue !== undefined && rawMaxValue !== '') {
-		if (typeof rawMaxValue !== 'number' && Number.isNaN(Number(rawMaxValue))) {
-			msg = `Invalid Max in row ${rowIndex + 1}: "${rawMaxValue}" is not a number.`;
+	if (maxValue !== undefined && maxValue !== '') {
+		if (typeof maxValue !== 'number' && Number.isNaN(Number(maxValue))) {
+			msg = `Invalid Max in row ${rowIndex + 1}: "${maxValue}" is not a number.`;
 			return { minMaxErrorMsg: msg, value: false };
 		}
 	}
 
 	//3.Convert to a number now that we know they are valid
-	let minValue;
+	let minNum;
 	//if its not empty convert it to a number otherwise = null
-	if (rawMinValue !== undefined && rawMinValue !== '') {
-		minValue = Number(rawMinValue)
+	if (minValue !== undefined && minValue !== '') {
+		minNum = Number(minValue)
 	} else {
-		minValue = null
+		minNum = null
 	}
 
-	let maxValue;
-	if (rawMaxValue !== undefined && rawMaxValue !== '') {
-		maxValue = Number(rawMaxValue)
+	let maxNum;
+	if (maxValue !== undefined && maxValue !== '') {
+		maxNum = Number(maxValue)
 	} else {
-		maxValue = null
+		maxNum = null
 	}
 	//4.Test if min > max (only if both exists)
-	if (minValue !== null && maxValue !== null && minValue > maxValue) {
-		msg = `Invalid Min/Max Values in row ${rowIndex + 1}: Min ("${rawMinValue}") is greater than Max ("${rawMaxValue}").`;
+	if (minNum !== null && maxNum !== null && minNum > maxNum) {
+		msg = `Invalid Min/Max Values in row ${rowIndex + 1}: Min ("${minValue}") is greater than Max ("${maxValue}").`;
 		return { minMaxErrorMsg: msg, value: false };
 	}
 	return { minMaxErrorMsg: '', value: true };
