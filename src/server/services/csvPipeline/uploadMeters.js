@@ -136,13 +136,17 @@ async function uploadMeters(req, res, filepath, conn) {
 					let msg = `For meter ${meter[0]} the area unit of ${areaUnitString} is invalid.`;
 					throw new CSVPipelineError(msg, undefined, 500);
 				}
-
-				//checks to make sure if area unit is none then area value must be empty or 0, and if area unit is not none then area value must be a number greater than 0.
-				const areaCheck = validateArea(meter, i);
-				if (!areaCheck.value) {
-					throw new CSVPipelineError(areaCheck.areaMsg, undefined, 500);
-				}
 			}
+
+			//Verify the relationship between areaUnit & areaValue
+			//When areaUnit is none areaValue must be zero
+			//areaInput declared on line 67
+			//areaUnitString declared on line 133
+			const areaCheck = validateArea(areaInput, areaUnitString, i);
+			if (!areaCheck.value) {
+				throw new CSVPipelineError(areaCheck.areaMsg, undefined, 500);
+			}
+
 
 			//checks to make sure max error value is a number between 0 and 75 if it is provided.
 			const maxErrorInput = meter[31];
@@ -465,7 +469,7 @@ function validateMinMaxValues(meter, rowIndex) {
  */
 function validateMaxError(maxErrorValue, rowIndex) {
 	let msg = '';
-	
+
 	//check existence
 	if (maxErrorValue === undefined || maxErrorValue === null || maxErrorValue === '') {
 		return { maxErrorMsg: '', value: true };
@@ -492,41 +496,45 @@ function validateMaxError(maxErrorValue, rowIndex) {
 /**
  * Validates the area value and its relationship with the area unit.
  * Ensures the value is a valid number, non-negative, and correctly corresponds to the 'none' unit.
- *  @param {Array} meter - A single row from the CSV file.
+ * @param {number | string} areaValue - The raw area value extracted from the CSV row.
+ * @param {string} areaUnitString - The raw area unit extracted from the CSV row.
  * @param {number} rowIndex - The current row index for error reporting.
  * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
-function validateArea(meter, rowIndex) {
-	const rawAreaValue = meter[9];
+function validateArea(areaValue, areaUnitString, rowIndex) {
 	let msg = '';
 
 	// Check existence
-	if (rawAreaValue === undefined || rawAreaValue === '') {
+	if (areaValue === undefined || areaValue === '') {
 		return { areaMsg: '', value: true };
 	}
 
-	const areaValue = parseFloat(rawAreaValue);
-
 	// If area unit exists, convert to lowercase for case-insensitive comparison
-	let areaUnit;
-	if (meter[25]) {
-		areaUnit = meter[25].toLowerCase();
+	let normalizedUnit;
+	if (areaUnitString) {
+		normalizedUnit = areaUnitString.toLowerCase();
 	} else {
-		areaUnit = '';
+		normalizedUnit = '';
 	}
 
-	if (Number.isNaN(areaValue)) {
-		msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" is not a number.`;
+	//Validate its a number
+	if (typeof areaValue !== 'number' && Number.isNaN(Number(areaValue))) {
+		msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}" is not a number.`;
 		return { areaMsg: msg, value: false };
 	}
 
-	if (areaValue < 0) {
-		msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}" must be a positive number.`;
+	//Convert now that we know it is valid
+	const val = Number(areaValue);
+
+	//Check it is not negative
+	if (val < 0) {
+		msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}" must be a positive number.`;
 		return { areaMsg: msg, value: false };
 	}
 
-	if (areaUnit === 'none' && areaValue !== 0) {
-		msg = `Invalid area value in row ${rowIndex + 1}: "${rawAreaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
+	// If unit is 'none', area value cannot be specified (areaValue must be zero?)
+	if (normalizedUnit === 'none' && val !== 0) {
+		msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
 		return { areaMsg: msg, value: false };
 	}
 
