@@ -418,8 +418,6 @@ function validateBooleanFields(meter, rowIndex) {
  * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
 
-//const rawMinValue = meter[27];
-//	const rawMaxValue = meter[28];
 function validateMinMaxValues(minValue, maxValue, rowIndex) {
 	let msg = ''
 
@@ -532,6 +530,12 @@ function validateArea(areaValue, areaUnitString, rowIndex) {
 
 	//Convert now that we know it is valid
 	const val = Number(areaValue);
+
+	//Without this Infinity could be passed as Valid but that would not make sense.
+	if (!Number.isFinite(val)) {
+    msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}" is not a finite number.`;
+    return { areaMsg: msg, value: false };
+	}
 
 	//Check it is not negative
 	if (val < 0) {
