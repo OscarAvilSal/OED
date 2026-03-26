@@ -444,21 +444,24 @@ function validateMinMaxValues(minValue, maxValue, rowIndex) {
 
 	//3.Convert to a number now that we know they are valid
 	let minNum;
-	//if its not empty convert it to a number otherwise = null
+
+	//if its not empty convert it to a number otherwise fall back to DB defaults
 	if (minValue !== undefined && minValue !== '') {
-		minNum = Number(minValue)
+		minNum = Number(minValue);
 	} else {
-		minNum = null
+		minNum = Number.MIN_SAFE_INTEGER;
 	}
 
 	let maxNum;
+	
+	//if its not empty convert it to a number otherwise fall back to DB defaults
 	if (maxValue !== undefined && maxValue !== '') {
-		maxNum = Number(maxValue)
+		maxNum = Number(maxValue);
 	} else {
-		maxNum = null
+		maxNum = Number.MAX_SAFE_INTEGER;
 	}
-	//4.Test if min > max (only if both exists)
-	if (minNum !== null && maxNum !== null && minNum > maxNum) {
+	//4.Test if min > max
+	if (minNum > maxNum) {
 		msg = `Invalid Min/Max Values in row ${rowIndex + 1}: Min ("${minValue}") is greater than Max ("${maxValue}").`;
 		return { minMaxErrorMsg: msg, value: false };
 	}
