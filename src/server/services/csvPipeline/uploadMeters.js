@@ -50,7 +50,7 @@ async function uploadMeters(req, res, filepath, conn) {
 			const maxValue = meter[28];
 			const minMaxCheck = validateMinMaxValues(minValue, maxValue, i);
 			if (!minMaxCheck.value) {
-				throw new CSVPipelineError (minMaxCheck.minMaxErrorMsg, undefined, 500);
+				throw new CSVPipelineError(minMaxCheck.minMaxErrorMsg, undefined, 500);
 			}
 
 			// First verify GPS is okay
@@ -88,11 +88,9 @@ async function uploadMeters(req, res, filepath, conn) {
 
 			// verify the Variation input
 			const variationInput = meter[15];
-			if (variationInput) {
-				if (!validateVariation(variationInput)) {
-					let msg = `For meter ${meter[0]} the Gap entry of ${variationInput} is invalid. Gap must be a number greater than 0.`;
-					throw new CSVPipelineError(msg, undefined, 500);
-				}
+			const variationCheck = validateVariation(variationInput, i);
+			if (!variationCheck.value) {
+				throw new CSVPipelineError(variationCheck.variationMsg, undefined, 500);
 			}
 
 			// validate reading duplication
@@ -453,7 +451,7 @@ function validateMinMaxValues(minValue, maxValue, rowIndex) {
 	}
 
 	let maxNum;
-	
+
 	//if its not empty convert it to a number otherwise fall back to DB defaults
 	if (maxValue !== undefined && maxValue !== '') {
 		maxNum = Number(maxValue);
@@ -536,8 +534,8 @@ function validateArea(areaValue, areaUnitString, rowIndex) {
 
 	//Without this Infinity could be passed as Valid but that would not make sense.
 	if (!Number.isFinite(val)) {
-    msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}" is not a finite number.`;
-    return { areaMsg: msg, value: false };
+		msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}" is not a finite number.`;
+		return { areaMsg: msg, value: false };
 	}
 
 	//Check it is not negative
@@ -733,23 +731,36 @@ function validateGap(meter, rowIndex) {
 }
 
 /**
- * In the validateVariation function we take in the readings for the variation and
- * verify that it’s greater than or equal to 0.
- * @param {Number} meter 
- * @param {Number} rowIndex 
+ * Valdates the Reading Variation to ensure it is a positive number
+ * @param {string | number} variationValue - The raw variation value extracted from the meter array,
+ * representing the allowed time variation in seconds
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
-function validateVariation(meter, rowIndex) {
-	const variationValue = Number(meter[15]);
-	if (!isNaN(variationValue)) {
-		if (variationValue < 0) {
-			throw new CSVPipelineError(
-				`Invalid variation value in row ${rowIndex + 1}: VariationValue="${meter[15]}". ` +
-				`Variation Value must be a number larger than 0.`,
-				undefined,
-				500
-			);
-		};
+function validateVariation(variationValue, rowIndex) {
+	let msg = '';
+
+	//DB defaults to zero if empty, columns allow null
+	if (variationValue === '' || variationValue === undefined || variationValue === null) {
+		return { variationMsg: '', value: true };
 	}
+
+	//Validate it is a number
+	if (typeof variationValue !== 'number' && Number.isNaN(Number(variationValue))) {
+		msg = `Invalid Reading Variation in row ${rowIndex + 1}: "${variationValue}" is not a number.`;
+		return { variationMsg: msg, value: false };
+	}
+
+	//convert now that we know it is a valid number
+	const variationNum = Number(variationValue);
+
+	//Check that it is not negative
+	if (variationNum < 0) {
+		msg = `Invalid Reading Variation in row ${rowIndex + 1}: "${variationValue}" cannot be negative.`;
+		return { variationMsg: msg, value: false };
+	}
+
+	return { variationMsg: '', value: true };
 }
 
 module.exports = uploadMeters;
