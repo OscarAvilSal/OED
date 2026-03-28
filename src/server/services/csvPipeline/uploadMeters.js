@@ -77,13 +77,11 @@ async function uploadMeters(req, res, filepath, conn) {
 				}
 			}
 
-			// verify the Gap input
+			// verify the Gap input is greater than zero
 			const gapInput = meter[14];
-			if (gapInput) {
-				if (!validateGap(gapInput)) {
-					let msg = `For meter ${meter[0]} the Gap entry of ${gapInput} is invalid. Gap must be a number greater than 0.`;
-					throw new CSVPipelineError(msg, undefined, 500);
-				}
+			const gapReadingCheck = validateGap(gapInput, i);
+			if (!gapReadingCheck.value) {
+				throw new CSVPipelineError(gapReadingCheck.gapMsg, undefined, 500);
 			}
 
 			// verify the Variation input
@@ -711,23 +709,36 @@ function isDuplicate(duplicateValue) {
 	return false;
 }
 /**
- * In the validateGap function we take in the readings for the Gap and
- * verify that it’s greater than or equal to 0.
- * @param {Number} meter 
- * @param {Number} rowIndex 
+ * Validates the Gap Reading to ensure it is a number greater than zero
+ * @param {string | number} gapValue - the allowed time variation in seconds that a gap may occur between two readings, default 0
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} An object containing the error message (if any) and a boolean success flag.
  */
-function validateGap(meter, rowIndex) {
-	const gapValue = Number(meter[14]);
-	if (!isNaN(gapValue)) {
-		if (gapValue < 0) {
-			throw new CSVPipelineError(
-				`Invalid gap value in row ${rowIndex + 1}: GapValue="${meter[14]}". ` +
-				`Gap must be a number larger than 0.`,
-				undefined,
-				500
-			);
-		};
+function validateGap(gapValue, rowIndex) {
+	let msg = ''
+
+	//DB defaults to zero if empty
+	if (gapValue === '' || gapValue === undefined || gapValue === null) {
+		return { gapMsg: '', value: true };
 	}
+
+	//Check if it is a number
+	if (typeof gapValue !== 'number' && Number.isNaN(Number(gapValue))) {
+		msg = `Invalid Gap Reading in row ${rowIndex + 1}: "${gapValue}" is not a number.`;
+		return { gapMsg: msg, value: false };
+	}
+
+	//Convert now that we know it is a number
+	const gapNum = Number(gapValue);
+
+	//Check if it is negative
+	if (gapNum < 0) {
+		msg = `Invalid Gap Reading in row ${rowIndex + 1}: "${gapValue}" cannot be negative.`;
+		return { gapMsg: msg, value: false };
+	}
+
+	return { gapMsg: '', value: true };
+
 }
 
 /**
