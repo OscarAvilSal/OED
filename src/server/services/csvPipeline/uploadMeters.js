@@ -101,11 +101,9 @@ async function uploadMeters(req, res, filepath, conn) {
 			}
 
 			const timeSortValue = meter[17];
-			if (timeSortValue) {
-				if (!isValidTimeSort(timeSortValue)) {
-					let msg = `For meter ${meter[0]} the time sort ${timeSortValue} is invalid. Valid options are increasing or decreasing.`;
-					throw new CSVPipelineError(msg, undefined, 500);
-				}
+			const timeSortCheck = isValidTimeSort(timeSortValue, i);
+			if (!timeSortCheck.value) {
+				throw new CSVPipelineError(timeSortCheck.timeSortMsg, undefined, 500);
 			}
 
 			// validate min & maxDates
@@ -292,23 +290,27 @@ function isValidAreaUnit(areaUnit, rowIndex) {
 	if (validTypes.includes(areaUnit)) {
 		return { areaUnitMsg: '', value: true };
 	} else {
-		msg = `Unrecognizable area unit in row: ${rowIndex + 1}. "${areaUnit}" is not a valid unit`;
-		return { areaUnitMsg: msg, value: false }
+		msg = `Unrecognizable area unit in row ${rowIndex + 1}: "${areaUnit}" is not a valid unit.`;
+		return { areaUnitMsg: msg, value: false };
 	}
 }
 
 /**
  * Checks if the time sort value provided is accurate (should be increasing or decreasing)
- * @param timeSortValue the provided time sort
- * @returns true or false
+ * @param {string} timeSortValue - The provided time sort
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} - An object containing the error message (if any) and a boolean success flag.
  */
-function isValidTimeSort(timeSortValue) {
+function isValidTimeSort(timeSortValue, rowIndex) {
+	let msg = '';
 	const validTimes = Object.values(MeterTimeSortTypesJS);
 	// must be one of the three values
 	if (validTimes.includes(timeSortValue)) {
-		return true;
+		return {timeSortMsg: '', value: true};
 	} else {
-		return false;
+		msg = `Unrecognized time sort value in row ${rowIndex + 1}: "${timeSortValue}" is not a valid value. Time sort must be 
+		either increasing or decreasing.`;
+		return {timeSortMsg: msg, value: false};
 	}
 }
 
