@@ -132,11 +132,9 @@ async function uploadMeters(req, res, filepath, conn) {
 
 			// Verify area unit provided
 			const areaUnitString = meter[25];
-			if (areaUnitString) {
-				if (!isValidAreaUnit(areaUnitString)) {
-					let msg = `For meter ${meter[0]} the area unit of ${areaUnitString} is invalid.`;
-					throw new CSVPipelineError(msg, undefined, 500);
-				}
+			const areaUnitCheck = isValidAreaUnit(areaUnitString, i);
+			if (!areaUnitCheck.value) {
+				throw new CSVPipelineError(areaUnitCheck.areaUnitMsg, undefined, 500);
 			}
 
 			//Verify the relationship between areaUnit & areaValue
@@ -282,17 +280,20 @@ function isValidArea(areaInput) {
 }
 
 /**
- * Checks if the area unit provided is an option
- * @param areaUnit the provided area for the meter
- * @returns true or false
+ * Checks if the unit of measurement for area is valid.
+ * @param {string} areaUnit - the unit of measurement for area. 
+ * @param {number}rowIndex - The current row index for error reporting.
+ * @returns {Object} - An object containing the error message (if any) and a boolean success flag.
  */
-function isValidAreaUnit(areaUnit) {
+function isValidAreaUnit(areaUnit, rowIndex) {
+	let msg = '';
 	const validTypes = Object.values(Unit.areaUnitType);
 	// must be one of the three values 
 	if (validTypes.includes(areaUnit)) {
-		return true;
+		return { areaUnitMsg: '', value: true };
 	} else {
-		return false;
+		msg = `Unrecognizable area unit in row: ${rowIndex + 1}. "${areaUnit}" is not a valid unit`;
+		return { areaUnitMsg: msg, value: false }
 	}
 }
 
