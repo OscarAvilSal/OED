@@ -512,16 +512,8 @@ function validateArea(areaValue, areaUnitString, rowIndex) {
 	let msg = '';
 
 	// Check existence
-	if (areaValue === undefined || areaValue === '') {
+	if (areaValue === undefined || areaValue === '' || areaValue === null) {
 		return { areaMsg: '', value: true };
-	}
-
-	// If area unit exists, convert to lowercase for case-insensitive comparison
-	let normalizedUnit;
-	if (areaUnitString) {
-		normalizedUnit = areaUnitString.toLowerCase();
-	} else {
-		normalizedUnit = '';
 	}
 
 	//Validate its a number
@@ -545,8 +537,8 @@ function validateArea(areaValue, areaUnitString, rowIndex) {
 		return { areaMsg: msg, value: false };
 	}
 
-	// If unit is 'none', area value cannot be specified (areaValue must be zero?)
-	if (normalizedUnit === 'none' && val !== 0) {
+	// If unit is 'none', area value cannot be specified (areaValue must be zero)
+	if (areaUnitString === Unit.areaUnitType.NONE && val !== 0) {
 		msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
 		return { areaMsg: msg, value: false };
 	}
