@@ -280,7 +280,7 @@ function isValidArea(areaInput) {
 /**
  * Checks if the unit of measurement for area is valid.
  * @param {string} areaUnit - the unit of measurement for area. 
- * @param {number}rowIndex - The current row index for error reporting.
+ * @param {number} rowIndex - The current row index for error reporting.
  * @returns {Object} - An object containing the error message (if any) and a boolean success flag.
  */
 function isValidAreaUnit(areaUnit, rowIndex) {
@@ -308,8 +308,7 @@ function isValidTimeSort(timeSortValue, rowIndex) {
 	if (validTimes.includes(timeSortValue)) {
 		return {timeSortMsg: '', value: true};
 	} else {
-		msg = `Unrecognized time sort value in row ${rowIndex + 1}: "${timeSortValue}" is not a valid value. Time sort must be 
-		either increasing or decreasing.`;
+		msg = `Unrecognized time sort value in row ${rowIndex + 1}: "${timeSortValue}" is not a valid value. Time sort must be either increasing or decreasing.`;
 		return {timeSortMsg: msg, value: false};
 	}
 }
@@ -726,6 +725,11 @@ function validateGap(gapValue, rowIndex) {
 	//Convert now that we know it is a number
 	const gapNum = Number(gapValue);
 
+	if(!Number.isFinite(gapValue)) {
+		msg = `Invalid Gap Reading in row ${rowIndex + 1}: "${gapValue}" cannot be an infinite number.`;
+		return { variationMsg: msg, value: false };
+	}
+
 	//Check if it is negative
 	if (gapNum < 0) {
 		msg = `Invalid Gap Reading in row ${rowIndex + 1}: "${gapValue}" cannot be negative.`;
@@ -759,6 +763,11 @@ function validateVariation(variationValue, rowIndex) {
 
 	//convert now that we know it is a valid number
 	const variationNum = Number(variationValue);
+
+	if(!Number.isFinite(variationValue)) {
+		msg = `Invalid Reading Variation in row ${rowIndex + 1}: "${variationValue}" cannot be an infinite number.`;
+		return { variationMsg: msg, value: false };
+	}
 
 	//Check that it is not negative
 	if (variationNum < 0) {
