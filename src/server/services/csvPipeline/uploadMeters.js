@@ -286,7 +286,7 @@ function isValidArea(areaInput) {
 function isValidAreaUnit(areaUnit, rowIndex) {
 	let msg = '';
 	const validTypes = Object.values(Unit.areaUnitType);
-	// must be one of the three values 
+	// must be one of the enum values 
 	if (validTypes.includes(areaUnit)) {
 		return { areaUnitMsg: '', value: true };
 	} else {
