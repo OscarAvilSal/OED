@@ -154,12 +154,10 @@ async function uploadMeters(req, res, filepath, conn) {
 
 			// Verify meter type
 			const meterTypeString = meter[4];
-			if (meterTypeString) {
-				if (!isValidMeterType(meterTypeString)) {
-					let msg = `For meter ${meter[0]} the meter type of ${meterTypeString} is invalid. Valid types include:
-								egauge, mamac, metasys, obvius, and other. `;
-					throw new CSVPipelineError(msg, undefined, 500);
-				}
+			const meterTypeCheck = isValidMeterType(meterTypeString, i);
+			if (!meterTypeCheck.value) {
+					throw new CSVPipelineError(meterTypeCheck.meterTypeMsg, undefined, 500);
+				
 			}
 
 			// Process unit.
@@ -314,16 +312,19 @@ function isValidTimeSort(timeSortValue, rowIndex) {
 }
 
 /**
- * Checks if the meter type provided is one of the 5 options allowed when creating a meter.
- * @param meterTypeString the string for the meter type
- * @returns true or false
+ * Checks if the meter type provided is one of the options allowed when creating a meter.
+ * @param {string} meterTypeString - The string for the meter type
+ * @param {number} rowIndex - The current row index for error reporting.
+ * @returns {Object} - An object containing the error message (if any) and a boolean success flag.
  */
-function isValidMeterType(meterTypeString) {
+function isValidMeterType(meterTypeString, rowIndex) {
+	let msg = '';
 	const validTypes = Object.values(Meter.type);
 	if (validTypes.includes(meterTypeString)) {
-		return true;
+		return {meterTypeMsg: '', value: true};
 	} else {
-		return false;
+		msg = `Invalid meter type in row ${rowIndex + 1}: "${meterTypeString}" is not valid. Valid types are: ${Object.values(Meter.type).join(', ')}.`;
+		return {meterTypeMsg: msg, value: false};
 	}
 }
 
