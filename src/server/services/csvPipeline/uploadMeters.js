@@ -304,7 +304,7 @@ function isValidAreaUnit(areaUnit, rowIndex) {
 function isValidTimeSort(timeSortValue, rowIndex) {
 	let msg = '';
 	const validTimes = Object.values(MeterTimeSortTypesJS);
-	// must be one of the three values
+	// must be one of the enum values
 	if (validTimes.includes(timeSortValue)) {
 		return {timeSortMsg: '', value: true};
 	} else {
