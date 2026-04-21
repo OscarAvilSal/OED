@@ -12,12 +12,11 @@ const moment = require('moment-timezone');
 
 /**
  * Middleware that uploads meters via the pipeline. This should be the final stage of the CSV Pipeline.
- * @param {express.Request} req
- * @param {express.Response} res
- * @param {filepath} filepath Path to meters csv file.
- * @param conn Connection to the database.
+ * @param {express.Request} req - The Express request object
+ * @param {filepath} filepath - The absolute path to the processed CSV file
+ * @param conn  - Connection to the database.
  */
-async function uploadMeters(req, res, filepath, conn) {
+async function uploadMeters(req, filepath, conn) {
 	const temp = (await readCsv(filepath)).map(row => {
 		// The Canonical structure of each row in the Meters CSV file is the order of the fields
 		// declared in the Meter constructor. If no headerRow is provided (i.e. headerRow === false),
