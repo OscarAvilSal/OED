@@ -595,27 +595,6 @@ function isValidDate(minDate, maxDate) {
 }
 
 /**
- * A subsidary function to help out isValidDate with processing a viable year range.
- * @param {String} date 
- * @returns boolean 
- */
-function validateYear(date) {
-	// make sure year exists
-	if (date === null || date === undefined) {
-		return false;
-	}
-
-	const minYear = 1;
-	const mYear = moment(date).year();
-	const mCurrentYear = moment().year();
-
-	if (mYear >= minYear && mYear <= mCurrentYear) {
-		return true;
-	}
-	return false;
-}
-
-/**
  * A function to convert an incorrect date string -> ex: "1970-1-1 1:1:1" to a correct date string
  * "1970-01-01 01:01:01" for less of a chance of an error being thrown in the isValidDate() function.
  * @param {String} date 
