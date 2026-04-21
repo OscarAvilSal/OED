@@ -156,8 +156,8 @@ async function uploadMeters(req, res, filepath, conn) {
 			const meterTypeString = meter[4];
 			const meterTypeCheck = isValidMeterType(meterTypeString, i);
 			if (!meterTypeCheck.value) {
-					throw new CSVPipelineError(meterTypeCheck.meterTypeMsg, undefined, 500);
-				
+				throw new CSVPipelineError(meterTypeCheck.meterTypeMsg, undefined, 500);
+
 			}
 
 			// Process unit.
@@ -304,10 +304,10 @@ function isValidTimeSort(timeSortValue, rowIndex) {
 	const validTimes = Object.values(MeterTimeSortTypesJS);
 	// must be one of the enum values
 	if (validTimes.includes(timeSortValue)) {
-		return {timeSortMsg: '', value: true};
+		return { timeSortMsg: '', value: true };
 	} else {
 		msg = `Unrecognized time sort value in row ${rowIndex + 1}: "${timeSortValue}" is not a valid value. Time sort must be either increasing or decreasing.`;
-		return {timeSortMsg: msg, value: false};
+		return { timeSortMsg: msg, value: false };
 	}
 }
 
@@ -321,10 +321,10 @@ function isValidMeterType(meterTypeString, rowIndex) {
 	let msg = '';
 	const validTypes = Object.values(Meter.type);
 	if (validTypes.includes(meterTypeString)) {
-		return {meterTypeMsg: '', value: true};
+		return { meterTypeMsg: '', value: true };
 	} else {
 		msg = `Invalid meter type in row ${rowIndex + 1}: "${meterTypeString}" is not valid. Valid types are: ${Object.values(Meter.type).join(', ')}.`;
-		return {meterTypeMsg: msg, value: false};
+		return { meterTypeMsg: msg, value: false };
 	}
 }
 
@@ -547,14 +547,13 @@ function validateArea(areaValue, areaUnitString, rowIndex) {
 }
 
 /**
- * A function to validate whether or not the inputted minimum and maximum dates are valid.
- * Also validates whether the minimum date comes before, or is equal to the maximum date.
- * Includes the helper function validateYear to create a valid range of dates (currently from: 0001 to the current year).
- * Also includes helper function correctDateTimeFormat to validate and correct any variations between the inputted dates.
- * @param {String} minDate 
- * @param {String} maxDate 
- * @returns pair { msg, value } 
+ * Validates whether the minimum and maximum dates are valid
+ * Also validates that the minimum date comes before or is equal to the maximum date
+ * @param {String} minDate - The minimum date string
+ * @param {String} maxDate - The maximum date string
+ * @returns {Object} - An Object containing the error message (if any) and a boolean success flag
  */
+
 function isValidDate(minDate, maxDate) {
 	let msg = '';
 
@@ -562,56 +561,37 @@ function isValidDate(minDate, maxDate) {
 	const correctMinFormat = correctDateTimeFormat(minDate);
 	const correctMaxFormat = correctDateTimeFormat(maxDate);
 
-	// validate that minDate was formatted correctly
-	let formattedMinDate, formattedMaxDate;
-	if (!correctMinFormat.value || !correctMaxFormat.value) {
-		// add error messages to the overall error message
-		msg += correctMinFormat.msg + '\n' + correctMaxFormat.msg;
-		return { msg: msg, value: false };
-	} else {
-		// set the formatted dates
-		formattedMinDate = correctMinFormat.msg;
-		formattedMaxDate = correctMaxFormat.msg;
+	// Check formats 
+	if (!correctMinFormat.value) {
+		msg += `Min date error: ${correctMinFormat.msg}. `;
 	}
 
-	// validate that years are within range 0001 to the current date
-	if (!validateYear(formattedMinDate) || !validateYear(formattedMaxDate)) {
-		msg += `\nMin year ${moment(formattedMinDate, "YYYY-MM-DD", true).year()} and Max year ${moment(formattedMaxDate, "YYYY-MM-DD", true).year()} are out of range (0001 to current year).`;
+	if (!correctMaxFormat.value) {
+		msg += `Max date error: ${correctMaxFormat.msg}.`;
+	}
+
+	//Exit early if formats are invalid
+	if (msg) {
 		return { msg: msg, value: false };
 	}
 
-	let bothValid = false;
+	//Create moment objects from the corrected strings
+	const minMoment = moment(correctMinFormat.msg, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true);
+	const maxMoment = moment(correctMaxFormat.msg, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true);
 
-	// create moment objects
-	const minMoment = moment(formattedMinDate, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true);
-	const maxMoment = moment(formattedMaxDate, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD"], true);
-
-	// validate lengths of the dates 
-	// checking if one includes time and one doesn't
-	if (minMoment.length != maxMoment.length) {
-		msg += `Min date: ${minMoment} and max date: ${maxMoment} are not equivalent lengths.`;
-		return { msg: msg, value: false };
-	}
-
+	//Validity Check
 	if (!minMoment.isValid() || !maxMoment.isValid()) {
-		msg += `\nError: Either Min Date ${minDate} or Max Date ${maxDate} is invalid (or both!).`;
+		msg = `One or both dates are mathematically invalid. Min date: ("${minDate}"), Max date: ("${maxDate}").`;
 		return { msg: msg, value: false };
-	} else if (minMoment.isValid() && maxMoment.isValid()) {
-		bothValid = true;
 	}
 
-	// dates validated now check if minDate is == maxDate
-	if (minMoment.isBefore(maxMoment) && bothValid) {
-		// everything validated
-		return { msg: msg, value: true };
-	}
-	// check if equal
-	if (minMoment.isSame(maxMoment)) {
-		msg += `\nMin date: ${minDate} is equal to the max date: ${maxDate}.`;
+	if (!minMoment.isSameOrBefore(maxMoment)) {
+		msg = `Min date ("${minDate}"), must be before or equal to max date ("${maxDate}").`;
+		return { msg: msg, value: false };
 	}
 
-	msg += `\nMin date: ${minDate} is greater than max date: ${maxDate}.`;
-	return { msg: msg, value: false };
+	return { msg: '', value: true };
+
 }
 
 /**
@@ -726,7 +706,7 @@ function validateGap(gapValue, rowIndex) {
 	//Convert now that we know it is a number
 	const gapNum = Number(gapValue);
 
-	if(!Number.isFinite(gapValue)) {
+	if (!Number.isFinite(gapValue)) {
 		msg = `Invalid Gap Reading in row ${rowIndex + 1}: "${gapValue}" cannot be an infinite number.`;
 		return { variationMsg: msg, value: false };
 	}
@@ -765,7 +745,7 @@ function validateVariation(variationValue, rowIndex) {
 	//convert now that we know it is a valid number
 	const variationNum = Number(variationValue);
 
-	if(!Number.isFinite(variationValue)) {
+	if (!Number.isFinite(variationValue)) {
 		msg = `Invalid Reading Variation in row ${rowIndex + 1}: "${variationValue}" cannot be an infinite number.`;
 		return { variationMsg: msg, value: false };
 	}
