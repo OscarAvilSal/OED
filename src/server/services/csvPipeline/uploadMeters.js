@@ -684,7 +684,7 @@ function validateGap(gapValue, rowIndex) {
 	//Convert now that we know it is a number
 	const gapNum = Number(gapValue);
 
-	if (!Number.isFinite(gapValue)) {
+	if (!Number.isFinite(gapNum)) {
 		msg = `Invalid Gap Reading in row ${rowIndex + 1}: "${gapValue}" cannot be an infinite number.`;
 		return { gapMsg: msg, value: false };
 	}
