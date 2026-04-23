@@ -425,7 +425,7 @@ function validateMinMaxValues(minValue, maxValue, rowIndex) {
 	}
 
 	//1.Test if minValue is a Valid number
-	if (minValue !== undefined && minValue !== '') {
+	if (minValue !== undefined && minValue !== '' && minValue !== null) {
 		if (typeof minValue !== 'number' && Number.isNaN(Number(minValue))) {
 			msg = `Invalid Min in row ${rowIndex + 1}: "${minValue}" is not a number.`;
 			return { minMaxErrorMsg: msg, value: false };
@@ -433,7 +433,7 @@ function validateMinMaxValues(minValue, maxValue, rowIndex) {
 
 	}
 	//2.Check if maxValue is a Valid Number
-	if (maxValue !== undefined && maxValue !== '') {
+	if (maxValue !== undefined && maxValue !== '' && maxValue !== null) {
 		if (typeof maxValue !== 'number' && Number.isNaN(Number(maxValue))) {
 			msg = `Invalid Max in row ${rowIndex + 1}: "${maxValue}" is not a number.`;
 			return { minMaxErrorMsg: msg, value: false };
@@ -444,7 +444,7 @@ function validateMinMaxValues(minValue, maxValue, rowIndex) {
 	let minNum;
 
 	//if its not empty convert it to a number otherwise fall back to DB defaults
-	if (minValue !== undefined && minValue !== '') {
+	if (minValue !== undefined && minValue !== '' && minValue !== null) {
 		minNum = Number(minValue);
 	} else {
 		minNum = Number.MIN_SAFE_INTEGER;
@@ -453,7 +453,7 @@ function validateMinMaxValues(minValue, maxValue, rowIndex) {
 	let maxNum;
 
 	//if its not empty convert it to a number otherwise fall back to DB defaults
-	if (maxValue !== undefined && maxValue !== '') {
+	if (maxValue !== undefined && maxValue !== '' && maxValue !== null) {
 		maxNum = Number(maxValue);
 	} else {
 		maxNum = Number.MAX_SAFE_INTEGER;
