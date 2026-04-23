@@ -723,7 +723,7 @@ function validateVariation(variationValue, rowIndex) {
 	//convert now that we know it is a valid number
 	const variationNum = Number(variationValue);
 
-	if (!Number.isFinite(variationValue)) {
+	if (!Number.isFinite(variationNum)) {
 		msg = `Invalid Reading Variation in row ${rowIndex + 1}: "${variationValue}" cannot be an infinite number.`;
 		return { variationMsg: msg, value: false };
 	}
