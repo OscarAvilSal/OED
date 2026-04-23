@@ -420,7 +420,7 @@ function validateMinMaxValues(minValue, maxValue, rowIndex) {
 	let msg = ''
 
 	//Quick exit if both are empty
-	if ((minValue === undefined || minValue === '') && (maxValue === undefined || maxValue === '')) {
+	if ((minValue === undefined || minValue === '' || minValue === null) && (maxValue === undefined || maxValue === '' || maxValue === null)) {
 		return { minMaxErrorMsg: '', value: true };
 	}
 
