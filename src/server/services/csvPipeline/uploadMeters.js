@@ -686,7 +686,7 @@ function validateGap(gapValue, rowIndex) {
 
 	if (!Number.isFinite(gapValue)) {
 		msg = `Invalid Gap Reading in row ${rowIndex + 1}: "${gapValue}" cannot be an infinite number.`;
-		return { variationMsg: msg, value: false };
+		return { gapMsg: msg, value: false };
 	}
 
 	//Check if it is negative
