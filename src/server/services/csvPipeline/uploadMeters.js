@@ -70,11 +70,9 @@ async function uploadMeters(req, filepath, conn) {
 
 			// verify the area input
 			const areaInput = meter[9];
-			if (areaInput) {
-				if (!isValidArea(areaInput)) {
-					let msg = `For meter ${meter[0]} the area entry of ${areaInput} is invalid. Area must be a number greater than 0.`;
-					throw new CSVPipelineError(msg, undefined, 500);
-				}
+			const areaInputCheck = isValidArea(areaInput, i);
+			if (!areaInputCheck.value) {
+				throw new CSVPipelineError(areaInputCheck.areaNumMsg, undefined, 500);
 			}
 
 			// verify the Gap input is greater than zero
@@ -117,7 +115,7 @@ async function uploadMeters(req, filepath, conn) {
 			const timezone = meter[5];
 			const timeZoneCheck = isValidTimeZone(timezone, i);
 			if (!timeZoneCheck.value) {
-					throw new CSVPipelineError(timeZoneCheck.timeZoneMsg, undefined, 500);
+				throw new CSVPipelineError(timeZoneCheck.timeZoneMsg, undefined, 500);
 			}
 
 			// Verify area unit provided
@@ -249,22 +247,42 @@ function switchGPS(gpsString) {
 }
 
 /**
- * Checks if the area provided is a number and if it is larger than zero.
- * @param areaInput the provided area for the meter
- * @returns true or false
+ * Checks if the area provided is a number and if it is larger than zero
+ * @param {string | number} areaInput - The provided area for the meter
+ * @param {number} rowIndex - The current row index for error reporting
+ * @returns {Object} - An object containing the error message (if any) and a boolean success flag
  */
-function isValidArea(areaInput) {
-	// check for non-number input, which is not allowed
-	if (Number.isNaN(areaInput)) {
-		return false;
+function isValidArea(areaInput, rowIndex) {
+	let msg = '';
+
+	//Quick exit if empty
+	if (areaInput === undefined || areaInput === null || areaInput === '') {
+		msg = `Invalid area in row ${rowIndex + 1}: Value cannot be empty.`;
+		return { areaNumMsg: msg, value: false };
 	}
 
-	// must be a number and must be non-negative
-	if (areaInput > 0) {
-		return true;
-	} else {
-		return false;
+	// check for non-number input, which is not allowed
+	if (typeof areaInput !== 'number' && Number.isNaN(Number(areaInput))) {
+		msg = `Invalid area in row ${rowIndex + 1}: "${areaInput}" is not a number.`;
+		return { areaNumMsg: msg, value: false };
 	}
+
+	const areaNum = Number(areaInput);
+
+	//Check for Infinity or -Infinity inputs
+	if (!Number.isFinite(areaNum)) {
+		msg = `Invalid area in row ${rowIndex + 1}: "${areaInput}" must be a finite number.`;
+		return { areaNumMsg: msg, value: false };
+	}
+
+	//Check for positive
+	if (areaNum < 0) {
+		msg = `Invalid area in row ${rowIndex + 1}: "${areaInput}" cannot be negative.`;
+		return { areaNumMsg: msg, value: false }
+	}
+
+	return { areaNumMsg: msg, value: true };
+
 }
 
 /**
@@ -331,10 +349,10 @@ function isValidTimeZone(zone, rowIndex) {
 
 	const validZones = moment.tz.names();
 	if (validZones.includes(zone)) {
-		return {timeZoneMsg: msg, value: true};
+		return { timeZoneMsg: msg, value: true };
 	} else {
 		msg = `Invalid time zone in row ${rowIndex + 1}: "${zone}" is not valid.`;
-		return {timeZoneMsg: msg, value: false};
+		return { timeZoneMsg: msg, value: false };
 	}
 }
 
