@@ -1,5 +1,4 @@
 const { expect } = require('chai');
-const { Unit } = require("/Users/destinyveloz/Desktop/OscarOED/OED/src/server/models/Unit.js")
 const { validateGap, validateVariation, validateMaxError, validateArea, isValidAreaUnit } = require('../../services/csvPipeline/uploadMeters.js');
 
 //const validateMaxError = uploadMeters.validateMaxError;
