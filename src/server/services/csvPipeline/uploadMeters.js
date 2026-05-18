@@ -709,4 +709,10 @@ function validateVariation(variationValue, rowIndex) {
 	return { variationMsg: '', value: true };
 }
 
+uploadMeters.validateGap = validateGap;
+uploadMeters.validateVariation = validateVariation;
+uploadMeters.validateMaxError = validateMaxError;
+uploadMeters.validateArea = validateArea;
+uploadMeters.isValidAreaUnit = isValidAreaUnit;
+
 module.exports = uploadMeters;
