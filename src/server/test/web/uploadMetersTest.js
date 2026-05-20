@@ -1,4 +1,5 @@
 const { expect } = require('chai');
+const Unit = require('../../models/Unit');
 const { validateGap, validateVariation, validateMaxError, validateArea, isValidAreaUnit } = require('../../services/csvPipeline/uploadMeters.js');
 
 //const validateMaxError = uploadMeters.validateMaxError;
@@ -263,6 +264,7 @@ describe("Validate Area Logic", function() {
 
     it("Should not pass if area value is a number and area unit is empty", function() {
         const result = validateArea(5, '', 0);
+        console.log("---OED ENUM TYPES---", Unit.areaUnitType);
         expect(result.value).to.equal(false);
         expect(result.areaMsg).to.include("When Area Unit is 'none', Area Value must be exactly 0");
     });
