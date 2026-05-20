@@ -551,6 +551,11 @@ function validateArea(areaValue, areaUnitString, rowIndex) {
 		return { areaMsg: msg, value: false };
 	}
 
+	//If the string is empty, treat is as NONE
+	if (areaUnitString === undefined || areaUnitString === '' || areaUnitString === null) {
+		areaUnitString = Unit.areaUnitType.NONE;
+	}
+
 	// If unit is 'none', area value cannot be specified (areaValue must be zero)
 	if (areaUnitString === Unit.areaUnitType.NONE && val !== 0) {
 		msg = `Invalid area value in row ${rowIndex + 1}: "${areaValue}". When Area Unit is 'none', Area Value must be exactly 0.`;
