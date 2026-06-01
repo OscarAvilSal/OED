@@ -47,13 +47,12 @@ describe('validateGap Logic', function() {
         expect(result.gapMsg).to.equal('');
     });
 
-    it("Should pass if gap is Infinity", function() {
-        const result = validateGap(Infinity, 0);
-        expect(result.value).to.equal(true);
-        expect(result.gapMsg).equal('');
-    })
-
     //Invalid
+    it("Should throw an error if gap is Infinity", function() {
+        const result = validateGap(Infinity, 0);
+        expect(result.value).to.equal(false);
+        expect(result.gapMsg).to.include('cannot be an infinite number');
+    })
 
     it("Should throw an error if gap value is a string like potato", function() {
         const result = validateGap("potato", 0);
